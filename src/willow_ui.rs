@@ -27,36 +27,11 @@ actions!(
 );
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum NamespaceType {
-    Shared,
-    Private,
-}
-
-#[derive(Debug, Clone)]
-pub struct FileSystemItem {
-    pub name: String,
+pub struct Entry {
+    pub namespace_id: String,
+    pub subspace_id: String,
     pub path: String,
-    pub is_directory: bool,
-    pub size: Option<u64>,
-    pub modified: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Subspace {
-    pub id: String,
-    pub name: String,
-    pub owner: String,
-    pub items: Vec<FileSystemItem>,
-    pub expanded: bool,
-}
-
-#[derive(Debug, Clone)]
-pub struct Namespace {
-    pub id: String,
-    pub name: String,
-    pub namespace_type: NamespaceType,
-    pub subspaces: Vec<Subspace>,
-    pub expanded: bool,
+    pub timestamp: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -77,7 +52,7 @@ pub fn init(cx: &mut App) {
 
 pub struct WillowUi {
     focus_handle: FocusHandle,
-    namespaces: Vec<Namespace>,
+    entries: Vec<Entry>,
     current_path: Vec<BreadcrumbItem>,
     selected_namespace: Option<String>,
     selected_subspace: Option<String>,
@@ -87,149 +62,89 @@ impl WillowUi {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let focus_handle = cx.focus_handle();
 
-        // Initialize with sample data
-        let namespaces = vec![
-            Namespace {
-                id: "family".to_string(),
-                name: "Family".to_string(),
-                namespace_type: NamespaceType::Shared,
-                expanded: false,
-                subspaces: vec![
-                    Subspace {
-                        id: "alice".to_string(),
-                        name: "Alice".to_string(),
-                        owner: "alice@family.com".to_string(),
-                        expanded: false,
-                        items: vec![
-                            FileSystemItem {
-                                name: "Documents".to_string(),
-                                path: "/family/alice/Documents".to_string(),
-                                is_directory: true,
-                                size: None,
-                                modified: Some("2 days ago".to_string()),
-                            },
-                            FileSystemItem {
-                                name: "Photos".to_string(),
-                                path: "/family/alice/Photos".to_string(),
-                                is_directory: true,
-                                size: None,
-                                modified: Some("1 week ago".to_string()),
-                            },
-                        ],
-                    },
-                    Subspace {
-                        id: "bob".to_string(),
-                        name: "Bob".to_string(),
-                        owner: "bob@family.com".to_string(),
-                        expanded: false,
-                        items: vec![FileSystemItem {
-                            name: "Music".to_string(),
-                            path: "/family/bob/Music".to_string(),
-                            is_directory: true,
-                            size: None,
-                            modified: Some("3 days ago".to_string()),
-                        }],
-                    },
-                ],
+        // Initialize with sample data - flattened entries
+        let entries = vec![
+            Entry {
+                namespace_id: "family".to_string(),
+                subspace_id: "alice".to_string(),
+                path: "/family/alice/Documents".to_string(),
+                timestamp: 1704067200, // 2 days ago (example timestamp)
             },
-            Namespace {
-                id: "work".to_string(),
-                name: "Work".to_string(),
-                namespace_type: NamespaceType::Private,
-                expanded: false,
-                subspaces: vec![Subspace {
-                    id: "projects".to_string(),
-                    name: "Projects".to_string(),
-                    owner: "me@work.com".to_string(),
-                    expanded: false,
-                    items: vec![
-                        FileSystemItem {
-                            name: "willow-fs".to_string(),
-                            path: "/work/projects/willow-fs".to_string(),
-                            is_directory: true,
-                            size: None,
-                            modified: Some("1 hour ago".to_string()),
-                        },
-                        FileSystemItem {
-                            name: "presentation.pdf".to_string(),
-                            path: "/work/projects/presentation.pdf".to_string(),
-                            is_directory: false,
-                            size: Some(2048576),
-                            modified: Some("Yesterday".to_string()),
-                        },
-                    ],
-                }],
+            Entry {
+                namespace_id: "family".to_string(),
+                subspace_id: "alice".to_string(),
+                path: "/family/alice/Photos".to_string(),
+                timestamp: 1703462400, // 1 week ago (example timestamp)
             },
-            Namespace {
-                id: "photos".to_string(),
-                name: "Photos".to_string(),
-                namespace_type: NamespaceType::Shared,
-                expanded: false,
-                subspaces: vec![Subspace {
-                    id: "vacation_2024".to_string(),
-                    name: "Vacation 2024".to_string(),
-                    owner: "shared@photos.com".to_string(),
-                    expanded: false,
-                    items: vec![
-                        FileSystemItem {
-                            name: "beach.jpg".to_string(),
-                            path: "/photos/vacation_2024/beach.jpg".to_string(),
-                            is_directory: false,
-                            size: Some(5242880),
-                            modified: Some("2 weeks ago".to_string()),
-                        },
-                        FileSystemItem {
-                            name: "mountains.jpg".to_string(),
-                            path: "/photos/vacation_2024/mountains.jpg".to_string(),
-                            is_directory: false,
-                            size: Some(4194304),
-                            modified: Some("2 weeks ago".to_string()),
-                        },
-                    ],
-                }],
+            Entry {
+                namespace_id: "family".to_string(),
+                subspace_id: "bob".to_string(),
+                path: "/family/bob/Music".to_string(),
+                timestamp: 1703980800, // 3 days ago (example timestamp)
+            },
+            Entry {
+                namespace_id: "work".to_string(),
+                subspace_id: "projects".to_string(),
+                path: "/work/projects/willow-fs".to_string(),
+                timestamp: 1704153600, // 1 hour ago (example timestamp)
+            },
+            Entry {
+                namespace_id: "work".to_string(),
+                subspace_id: "projects".to_string(),
+                path: "/work/projects/presentation.pdf".to_string(),
+                timestamp: 1704067200, // Yesterday (example timestamp)
+            },
+            Entry {
+                namespace_id: "photos".to_string(),
+                subspace_id: "vacation_2024".to_string(),
+                path: "/photos/vacation_2024/beach.jpg".to_string(),
+                timestamp: 1702857600, // 2 weeks ago (example timestamp)
+            },
+            Entry {
+                namespace_id: "photos".to_string(),
+                subspace_id: "vacation_2024".to_string(),
+                path: "/photos/vacation_2024/mountains.jpg".to_string(),
+                timestamp: 1702857600, // 2 weeks ago (example timestamp)
             },
         ];
 
         Self {
             focus_handle,
-            namespaces,
+            entries,
             current_path: vec![],
             selected_namespace: None,
             selected_subspace: None,
         }
     }
 
-    fn toggle_namespace(&mut self, namespace_id: &str, cx: &mut Context<Self>) {
-        if let Some(namespace) = self.namespaces.iter_mut().find(|n| n.id == namespace_id) {
-            namespace.expanded = !namespace.expanded;
-            if namespace.expanded {
-                self.selected_namespace = Some(namespace_id.to_string());
-                self.selected_subspace = None;
-            }
-            cx.notify();
+    fn toggle_namespace(&mut self, namespace_id: &str, _cx: &mut Context<Self>) {
+        if self.selected_namespace.as_ref() == Some(&namespace_id.to_string()) {
+            self.selected_namespace = None;
+            self.selected_subspace = None;
+        } else {
+            self.selected_namespace = Some(namespace_id.to_string());
+            self.selected_subspace = None;
         }
     }
 
-    fn toggle_subspace(&mut self, namespace_id: &str, subspace_id: &str, cx: &mut Context<Self>) {
-        if let Some(namespace) = self.namespaces.iter_mut().find(|n| n.id == namespace_id) {
-            if let Some(subspace) = namespace.subspaces.iter_mut().find(|s| s.id == subspace_id) {
-                subspace.expanded = !subspace.expanded;
-                if subspace.expanded {
-                    self.selected_namespace = Some(namespace_id.to_string());
-                    self.selected_subspace = Some(subspace_id.to_string());
-                    self.current_path = vec![
-                        BreadcrumbItem {
-                            name: namespace.name.clone(),
-                            path: format!("/{}", namespace.id),
-                        },
-                        BreadcrumbItem {
-                            name: subspace.name.clone(),
-                            path: format!("/{}/{}", namespace.id, subspace.id),
-                        },
-                    ];
-                }
-                cx.notify();
-            }
+    fn toggle_subspace(&mut self, namespace_id: &str, subspace_id: &str, _cx: &mut Context<Self>) {
+        if self.selected_namespace.as_ref() == Some(&namespace_id.to_string())
+            && self.selected_subspace.as_ref() == Some(&subspace_id.to_string())
+        {
+            self.selected_subspace = None;
+        } else {
+            self.selected_namespace = Some(namespace_id.to_string());
+            self.selected_subspace = Some(subspace_id.to_string());
+            self.current_path = vec![
+                BreadcrumbItem {
+                    name: namespace_id.to_string(),
+                    path: format!("/{}", namespace_id),
+                },
+                BreadcrumbItem {
+                    name: subspace_id.to_string(),
+                    path: format!("/{}/{}", namespace_id, subspace_id),
+                },
+            ];
         }
     }
 
@@ -267,15 +182,12 @@ impl WillowUi {
 
     fn render_namespace(
         &self,
-        namespace: &Namespace,
+        namespace_id: &str,
         namespace_idx: usize,
         cx: &mut Context<Self>,
     ) -> impl gpui::IntoElement {
-        let namespace_id = namespace.id.clone();
-        let namespace_icon = match namespace.namespace_type {
-            NamespaceType::Shared => IconName::Person,
-            NamespaceType::Private => IconName::Eye,
-        };
+        let namespace_id_owned = namespace_id.to_string();
+        let is_expanded = self.selected_namespace.as_ref() == Some(&namespace_id_owned);
 
         let mut namespace_container = v_flex().w_full().child(
             ListItem::new(("namespace", namespace_idx))
@@ -286,46 +198,45 @@ impl WillowUi {
                         .child(
                             IconButton::new(
                                 ("expand-ns", namespace_idx),
-                                if namespace.expanded {
+                                if is_expanded {
                                     IconName::ChevronDown
                                 } else {
                                     IconName::ChevronRight
                                 },
                             )
-                            .on_click(cx.listener(
-                                move |this, _event, _window, cx| {
-                                    this.toggle_namespace(&namespace_id, cx);
-                                },
-                            )),
+                            .on_click({
+                                let namespace_id_for_callback = namespace_id_owned.clone();
+                                cx.listener(move |this, _event, _window, cx| {
+                                    this.toggle_namespace(&namespace_id_for_callback, cx);
+                                    cx.notify();
+                                })
+                            }),
                         )
-                        .child(Icon::new(namespace_icon).size(IconSize::Small).color(
-                            match namespace.namespace_type {
-                                NamespaceType::Shared => Color::Accent,
-                                NamespaceType::Private => Color::Warning,
-                            },
-                        )),
+                        .child(
+                            Icon::new(IconName::Person)
+                                .size(IconSize::Small)
+                                .color(Color::Accent),
+                        ),
                 )
                 .child(
-                    Label::new(&namespace.name)
+                    Label::new(&namespace_id_owned)
                         .size(LabelSize::Default)
                         .color(Color::Default),
                 )
                 .end_slot(
-                    Label::new(match namespace.namespace_type {
-                        NamespaceType::Shared => "Shared",
-                        NamespaceType::Private => "Private",
-                    })
-                    .size(LabelSize::Small)
-                    .color(Color::Muted),
+                    Label::new("Namespace")
+                        .size(LabelSize::Small)
+                        .color(Color::Muted),
                 ),
         );
 
-        if namespace.expanded {
+        if is_expanded {
+            let subspaces = self.get_subspaces_for_namespace(namespace_id);
             let mut subspace_container = v_flex().ml_6();
-            for (subspace_idx, subspace) in namespace.subspaces.iter().enumerate() {
+            for (subspace_idx, subspace_id) in subspaces.iter().enumerate() {
                 subspace_container = subspace_container.child(self.render_subspace(
-                    &namespace.id,
-                    subspace,
+                    namespace_id,
+                    subspace_id,
                     subspace_idx,
                     cx,
                 ));
@@ -339,12 +250,14 @@ impl WillowUi {
     fn render_subspace(
         &self,
         namespace_id: &str,
-        subspace: &Subspace,
+        subspace_id: &str,
         subspace_idx: usize,
         cx: &mut Context<Self>,
     ) -> impl gpui::IntoElement {
-        let subspace_id = subspace.id.clone();
-        let namespace_id_clone = namespace_id.to_string();
+        let subspace_id_owned = subspace_id.to_string();
+        let namespace_id_owned = namespace_id.to_string();
+        let is_expanded = self.selected_namespace.as_ref() == Some(&namespace_id_owned)
+            && self.selected_subspace.as_ref() == Some(&subspace_id_owned);
 
         let mut subspace_container = v_flex().w_full().child(
             ListItem::new(("subspace", subspace_idx))
@@ -355,17 +268,24 @@ impl WillowUi {
                         .child(
                             IconButton::new(
                                 ("expand-ss", subspace_idx),
-                                if subspace.expanded {
+                                if is_expanded {
                                     IconName::ChevronDown
                                 } else {
                                     IconName::ChevronRight
                                 },
                             )
-                            .on_click(cx.listener(
-                                move |this, _event, _window, cx| {
-                                    this.toggle_subspace(&namespace_id_clone, &subspace_id, cx);
-                                },
-                            )),
+                            .on_click({
+                                let namespace_id_for_callback = namespace_id_owned.clone();
+                                let subspace_id_for_callback = subspace_id_owned.clone();
+                                cx.listener(move |this, _event, _window, cx| {
+                                    this.toggle_subspace(
+                                        &namespace_id_for_callback,
+                                        &subspace_id_for_callback,
+                                        cx,
+                                    );
+                                    cx.notify();
+                                })
+                            }),
                         )
                         .child(
                             Icon::new(IconName::Person)
@@ -374,24 +294,17 @@ impl WillowUi {
                         ),
                 )
                 .child(
-                    v_flex()
-                        .child(
-                            Label::new(&subspace.name)
-                                .size(LabelSize::Default)
-                                .color(Color::Default),
-                        )
-                        .child(
-                            Label::new(&subspace.owner)
-                                .size(LabelSize::Small)
-                                .color(Color::Muted),
-                        ),
+                    Label::new(&subspace_id_owned)
+                        .size(LabelSize::Default)
+                        .color(Color::Default),
                 ),
         );
 
-        if subspace.expanded {
+        if is_expanded {
+            let entries = self.get_entries_for_subspace(namespace_id, subspace_id);
             let mut items_container = v_flex().ml_6();
-            for (item_idx, item) in subspace.items.iter().enumerate() {
-                items_container = items_container.child(self.render_file_item(item, item_idx, cx));
+            for (entry_idx, entry) in entries.iter().enumerate() {
+                items_container = items_container.child(self.render_entry(entry, entry_idx, cx));
             }
             subspace_container = subspace_container.child(items_container);
         }
@@ -399,16 +312,20 @@ impl WillowUi {
         subspace_container
     }
 
-    fn render_file_item(
+    fn render_entry(
         &self,
-        item: &FileSystemItem,
-        item_idx: usize,
+        entry: &Entry,
+        entry_idx: usize,
         _cx: &mut Context<Self>,
     ) -> impl gpui::IntoElement {
-        let icon = if item.is_directory {
+        let path_parts: Vec<&str> = entry.path.split('/').collect();
+        let name = path_parts.last().unwrap_or(&"").to_string();
+        let is_directory = !name.contains('.');
+
+        let icon = if is_directory {
             IconName::Folder
         } else {
-            match item.name.split('.').last().unwrap_or("") {
+            match name.split('.').last().unwrap_or("") {
                 "jpg" | "jpeg" | "png" | "gif" | "bmp" => IconName::Image,
                 "pdf" => IconName::File,
                 "mp3" | "wav" | "flac" => IconName::File,
@@ -417,12 +334,12 @@ impl WillowUi {
             }
         };
 
-        ListItem::new(("file", item_idx))
+        ListItem::new(("entry", entry_idx))
             .spacing(ListItemSpacing::Sparse)
             .start_slot(
                 Icon::new(icon)
                     .size(IconSize::Small)
-                    .color(if item.is_directory {
+                    .color(if is_directory {
                         Color::Accent
                     } else {
                         Color::Muted
@@ -433,50 +350,59 @@ impl WillowUi {
                     .justify_between()
                     .w_full()
                     .child(
-                        Label::new(&item.name)
+                        Label::new(&name)
                             .size(LabelSize::Default)
                             .color(Color::Default),
                     )
                     .child(
-                        h_flex()
-                            .gap_4()
-                            .children(if let Some(size) = item.size {
-                                Some(
-                                    Label::new(Self::format_file_size(size))
-                                        .size(LabelSize::Small)
-                                        .color(Color::Muted),
-                                )
-                            } else {
-                                None
-                            })
-                            .children(if let Some(modified) = &item.modified {
-                                Some(
-                                    Label::new(modified)
-                                        .size(LabelSize::Small)
-                                        .color(Color::Muted),
-                                )
-                            } else {
-                                None
-                            }),
+                        h_flex().gap_4().child(
+                            Label::new(&self.format_timestamp(entry.timestamp))
+                                .size(LabelSize::Small)
+                                .color(Color::Muted),
+                        ),
                     ),
             )
     }
 
-    fn format_file_size(bytes: u64) -> String {
-        const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
-        let mut size = bytes as f64;
-        let mut unit_index = 0;
-
-        while size >= 1024.0 && unit_index < UNITS.len() - 1 {
-            size /= 1024.0;
-            unit_index += 1;
+    fn format_timestamp(&self, timestamp: i64) -> String {
+        // Simple timestamp formatting - in a real app you'd use a proper date library
+        match timestamp {
+            1704153600 => "1 hour ago".to_string(),
+            1704067200 => "Yesterday".to_string(),
+            1703980800 => "3 days ago".to_string(),
+            1703462400 => "1 week ago".to_string(),
+            1702857600 => "2 weeks ago".to_string(),
+            _ => format!("Timestamp: {}", timestamp),
         }
+    }
 
-        if unit_index == 0 {
-            format!("{} {}", size as u64, UNITS[unit_index])
-        } else {
-            format!("{:.1} {}", size, UNITS[unit_index])
+    fn get_namespaces(&self) -> Vec<String> {
+        let mut namespaces = Vec::new();
+        for entry in &self.entries {
+            if !namespaces.contains(&entry.namespace_id) {
+                namespaces.push(entry.namespace_id.clone());
+            }
         }
+        namespaces.sort();
+        namespaces
+    }
+
+    fn get_subspaces_for_namespace(&self, namespace_id: &str) -> Vec<String> {
+        let mut subspaces = Vec::new();
+        for entry in &self.entries {
+            if entry.namespace_id == namespace_id && !subspaces.contains(&entry.subspace_id) {
+                subspaces.push(entry.subspace_id.clone());
+            }
+        }
+        subspaces.sort();
+        subspaces
+    }
+
+    fn get_entries_for_subspace(&self, namespace_id: &str, subspace_id: &str) -> Vec<&Entry> {
+        self.entries
+            .iter()
+            .filter(|entry| entry.namespace_id == namespace_id && entry.subspace_id == subspace_id)
+            .collect()
     }
 
     fn render_toolbar(&self, cx: &mut Context<Self>) -> impl gpui::IntoElement {
@@ -545,8 +471,9 @@ impl Render for WillowUi {
             .child(self.render_breadcrumbs(cx))
             .child(div().flex_1().overflow_hidden().p_3().child({
                 let mut flex = v_flex().gap_1();
-                for (namespace_idx, namespace) in self.namespaces.iter().enumerate() {
-                    flex = flex.child(self.render_namespace(namespace, namespace_idx, cx));
+                let namespaces = self.get_namespaces();
+                for (namespace_idx, namespace_id) in namespaces.iter().enumerate() {
+                    flex = flex.child(self.render_namespace(namespace_id, namespace_idx, cx));
                 }
                 flex
             }))
