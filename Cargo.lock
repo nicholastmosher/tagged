@@ -15784,14 +15784,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-tungstenite",
- "db",
- "gpui",
  "schemars 1.1.0",
  "serde",
  "serde_json",
- "settings",
- "util",
- "workspace",
  "zed",
 ]
 

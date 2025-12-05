@@ -1,11 +1,15 @@
+use crate::db::kvp::KEY_VALUE_STORE;
+use crate::gpui;
+use crate::util::ResultExt as _;
 use anyhow::{Context as _, bail};
-use db::kvp::KEY_VALUE_STORE;
 use gpui::{prelude::FluentBuilder, *};
 use serde::{Deserialize, Serialize};
-use util::ResultExt as _;
+
+// Import Entry from willow_ui for consistent data model
+use crate::willow_ui::Entry;
 
 // use willow_panel_settings::WillowPanelSettings;
-use workspace::{
+use crate::workspace::{
     Panel, Workspace,
     dock::{DockPosition, PanelEvent},
     ui::{
@@ -63,38 +67,20 @@ struct SerializedWillowPanel {
     width: Option<Pixels>,
 }
 
-#[derive(Debug, Clone)]
-pub struct WillowDocument {
-    pub id: String,
-    pub path: String,
-    pub content: String,
-    pub author: String,
-    pub timestamp: String,
-    pub size: usize,
-}
-
-#[derive(Debug, Clone)]
-pub struct WillowSubspace {
-    pub _id: String,
-    pub name: String,
-    pub document_count: usize,
-    pub _created_at: String,
-}
-
+// Remove old structures and use Entry from willow_ui instead
 #[derive(Debug, Clone)]
 enum DialogState {
     None,
     CreateDocument { path: String, content: String },
     CreateSubspace {},
-    ViewDocument { document: WillowDocument },
+    ViewDocument { entry: Entry },
 }
 
 pub struct WillowPanel {
     width: Option<Pixels>,
     pending_serialization: Task<Option<()>>,
     focus_handle: FocusHandle,
-    documents: Vec<WillowDocument>,
-    subspaces: Vec<WillowSubspace>,
+    entries: Vec<Entry>,
     dialog_state: DialogState,
     // TODO: Add Willow store when dependencies are working
     // store: Arc<WillowStore>,
@@ -141,38 +127,49 @@ impl WillowPanel {
                 width: None,
                 pending_serialization: Task::ready(None),
                 focus_handle: cx.focus_handle(),
-                documents: vec![
-                    // Sample data for demonstration
-                    WillowDocument {
-                        id: "doc1".to_string(),
-                        path: "notes/meeting.txt".to_string(),
-                        content: "Meeting notes from today's standup...".to_string(),
-                        author: "alice@example.com".to_string(),
-                        timestamp: "2024-01-15 10:30".to_string(),
-                        size: 156,
+                entries: vec![
+                    // Sample data matching willow_ui entries
+                    Entry {
+                        namespace_id: "family".to_string(),
+                        subspace_id: "alice".to_string(),
+                        path: "/family/alice/Documents".to_string(),
+                        timestamp: 1704067200, // 2 days ago
                     },
-                    WillowDocument {
-                        id: "doc2".to_string(),
-                        path: "docs/readme.md".to_string(),
-                        content: "# Project Documentation\n\nThis is the main documentation..."
-                            .to_string(),
-                        author: "bob@example.com".to_string(),
-                        timestamp: "2024-01-14 15:45".to_string(),
-                        size: 234,
+                    Entry {
+                        namespace_id: "family".to_string(),
+                        subspace_id: "alice".to_string(),
+                        path: "/family/alice/Photos".to_string(),
+                        timestamp: 1703462400, // 1 week ago
                     },
-                ],
-                subspaces: vec![
-                    WillowSubspace {
-                        _id: "subspace1".to_string(),
-                        name: "Personal Notes".to_string(),
-                        document_count: 1,
-                        _created_at: "2024-01-10".to_string(),
+                    Entry {
+                        namespace_id: "family".to_string(),
+                        subspace_id: "bob".to_string(),
+                        path: "/family/bob/Music".to_string(),
+                        timestamp: 1703980800, // 3 days ago
                     },
-                    WillowSubspace {
-                        _id: "subspace2".to_string(),
-                        name: "Project Docs".to_string(),
-                        document_count: 1,
-                        _created_at: "2024-01-12".to_string(),
+                    Entry {
+                        namespace_id: "work".to_string(),
+                        subspace_id: "projects".to_string(),
+                        path: "/work/projects/willow-fs".to_string(),
+                        timestamp: 1704153600, // 1 hour ago
+                    },
+                    Entry {
+                        namespace_id: "work".to_string(),
+                        subspace_id: "projects".to_string(),
+                        path: "/work/projects/presentation.pdf".to_string(),
+                        timestamp: 1704067200, // Yesterday
+                    },
+                    Entry {
+                        namespace_id: "photos".to_string(),
+                        subspace_id: "vacation_2024".to_string(),
+                        path: "/photos/vacation_2024/beach.jpg".to_string(),
+                        timestamp: 1702857600, // 2 weeks ago
+                    },
+                    Entry {
+                        namespace_id: "photos".to_string(),
+                        subspace_id: "vacation_2024".to_string(),
+                        path: "/photos/vacation_2024/mountains.jpg".to_string(),
+                        timestamp: 1702857600, // 2 weeks ago
                     },
                 ],
                 dialog_state: DialogState::None,
@@ -221,32 +218,29 @@ impl WillowPanel {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        // For demo purposes, create a mock document
-        if let DialogState::CreateDocument { path, content } = &self.dialog_state {
+        // For demo purposes, create a mock entry
+        if let DialogState::CreateDocument { path, content: _ } = &self.dialog_state {
             if !path.is_empty() {
-                let new_doc = WillowDocument {
-                    id: format!("doc_{}", self.documents.len() + 1),
+                let new_entry = Entry {
+                    namespace_id: "user".to_string(),
+                    subspace_id: "documents".to_string(),
                     path: path.clone(),
-                    content: content.clone(),
-                    author: "current_user@example.com".to_string(),
-                    timestamp: "Just now".to_string(),
-                    size: content.len(),
+                    timestamp: 1704157200, // Current timestamp (example)
                 };
 
-                self.documents.push(new_doc);
+                self.entries.push(new_entry);
                 self.dialog_state = DialogState::None;
                 cx.notify();
             }
         }
     }
 
-    pub fn delete_document(
-        &mut self,
-        document: &WillowDocument,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.documents.retain(|d| d.id != document.id);
+    pub fn delete_document(&mut self, entry: &Entry, _window: &mut Window, cx: &mut Context<Self>) {
+        self.entries.retain(|e| {
+            !(e.path == entry.path
+                && e.namespace_id == entry.namespace_id
+                && e.subspace_id == entry.subspace_id)
+        });
         cx.notify();
     }
 }
@@ -452,16 +446,15 @@ impl WillowPanel {
                                                 )
                                                 .on_click(cx.listener(
                                                     |this, _event, _window, cx| {
-                                                        let new_subspace = WillowSubspace {
-                                                            _id: format!(
-                                                                "subspace_{}",
-                                                                this.subspaces.len() + 1
-                                                            ),
-                                                            name: "New Subspace".to_string(),
-                                                            document_count: 0,
-                                                            _created_at: "Just now".to_string(),
+                                                        // Create a sample entry for the new subspace
+                                                        let new_entry = Entry {
+                                                            namespace_id: "user".to_string(),
+                                                            subspace_id: "new_subspace".to_string(),
+                                                            path: "/user/new_subspace/welcome.txt"
+                                                                .to_string(),
+                                                            timestamp: 1704157200, // Current timestamp
                                                         };
-                                                        this.subspaces.push(new_subspace);
+                                                        this.entries.push(new_entry);
                                                         this.dialog_state = DialogState::None;
                                                         cx.notify();
                                                     },
@@ -471,7 +464,7 @@ impl WillowPanel {
                             ),
                     ),
             ),
-            DialogState::ViewDocument { document, .. } => Some(
+            DialogState::ViewDocument { entry, .. } => Some(
                 div()
                     .absolute()
                     .top_0()
@@ -498,7 +491,7 @@ impl WillowPanel {
                                             .justify_between()
                                             .items_center()
                                             .child(
-                                                Label::new(&document.path)
+                                                Label::new(&entry.path)
                                                     .size(LabelSize::Default)
                                                     .color(Color::Default),
                                             )
@@ -522,26 +515,52 @@ impl WillowPanel {
                                             .border_1()
                                             .border_color(cx.theme().colors().border_variant)
                                             .child(
-                                                Label::new(&document.content)
-                                                    .size(LabelSize::Small)
-                                                    .color(Color::Default),
-                                            ),
-                                    )
-                                    .child(
-                                        h_flex()
-                                            .justify_between()
-                                            .child(
-                                                Label::new(format!(
-                                                    "{} bytes • {}",
-                                                    document.size, document.author
-                                                ))
-                                                .size(LabelSize::XSmall)
-                                                .color(Color::Muted),
-                                            )
-                                            .child(
-                                                Label::new(&document.timestamp)
-                                                    .size(LabelSize::XSmall)
-                                                    .color(Color::Muted),
+                                                v_flex()
+                                                    .gap_2()
+                                                    .child(
+                                                        h_flex()
+                                                            .gap_2()
+                                                            .child(
+                                                                Label::new("Namespace:")
+                                                                    .size(LabelSize::Small)
+                                                                    .color(Color::Muted),
+                                                            )
+                                                            .child(
+                                                                Label::new(&entry.namespace_id)
+                                                                    .size(LabelSize::Small)
+                                                                    .color(Color::Default),
+                                                            ),
+                                                    )
+                                                    .child(
+                                                        h_flex()
+                                                            .gap_2()
+                                                            .child(
+                                                                Label::new("Subspace:")
+                                                                    .size(LabelSize::Small)
+                                                                    .color(Color::Muted),
+                                                            )
+                                                            .child(
+                                                                Label::new(&entry.subspace_id)
+                                                                    .size(LabelSize::Small)
+                                                                    .color(Color::Default),
+                                                            ),
+                                                    )
+                                                    .child(
+                                                        h_flex()
+                                                            .gap_2()
+                                                            .child(
+                                                                Label::new("Last Modified:")
+                                                                    .size(LabelSize::Small)
+                                                                    .color(Color::Muted),
+                                                            )
+                                                            .child(
+                                                                Label::new(&self.format_timestamp(
+                                                                    entry.timestamp,
+                                                                ))
+                                                                .size(LabelSize::Small)
+                                                                .color(Color::Default),
+                                                            ),
+                                                    ),
                                             ),
                                     ),
                             ),
@@ -550,90 +569,122 @@ impl WillowPanel {
         }
     }
 
-    fn render_subspaces(&self, _cx: &mut Context<Self>) -> impl IntoElement {
-        v_flex()
-            .gap_2()
-            // Subspaces header
-            .child(
-                h_flex()
-                    .justify_between()
-                    .items_center()
-                    .child(
-                        Label::new("Subspaces")
-                            .size(LabelSize::Small)
-                            .color(Color::Muted),
-                    )
-                    .child(
-                        Label::new(format!("{}", self.subspaces.len()))
-                            .size(LabelSize::XSmall)
-                            .color(Color::Muted),
-                    ),
-            )
-            // Subspaces elements
-            .children(self.subspaces.iter().enumerate().map(|(i, subspace)| {
-                ListItem::new(("subspace", i))
-                    .spacing(ListItemSpacing::Dense)
-                    .start_slot(
-                        Icon::new(IconName::Person)
-                            .size(IconSize::Small)
-                            .color(Color::Accent),
-                    )
-                    .child(
-                        v_flex()
-                            .child(
-                                Label::new(&subspace.name)
-                                    .size(LabelSize::Small)
-                                    .color(Color::Default),
-                            )
-                            .child(
-                                Label::new(format!("{} documents", subspace.document_count))
-                                    .size(LabelSize::XSmall)
-                                    .color(Color::Muted),
-                            ),
-                    )
-            }))
+    fn format_timestamp(&self, timestamp: i64) -> String {
+        // Simple timestamp formatting - in a real app you'd use a proper date library
+        match timestamp {
+            1704153600 => "1 hour ago".to_string(),
+            1704067200 => "Yesterday".to_string(),
+            1703980800 => "3 days ago".to_string(),
+            1703462400 => "1 week ago".to_string(),
+            1702857600 => "2 weeks ago".to_string(),
+            _ => format!("Timestamp: {}", timestamp),
+        }
     }
 
-    fn render_documents(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn get_file_icon(&self, path: &str) -> IconName {
+        let path_parts: Vec<&str> = path.split('/').collect();
+        let name = path_parts.last().unwrap_or(&"").to_string();
+        let is_directory = !name.contains('.');
+
+        if is_directory {
+            IconName::Folder
+        } else {
+            match name.split('.').last().unwrap_or("") {
+                "jpg" | "jpeg" | "png" | "gif" | "bmp" => IconName::Image,
+                "pdf" => IconName::File,
+                "mp3" | "wav" | "flac" => IconName::File,
+                "mp4" | "avi" | "mkv" => IconName::File,
+                _ => IconName::File,
+            }
+        }
+    }
+
+    fn render_timeline(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let mut sorted_entries = self.entries.clone();
+        sorted_entries.sort_by(|a, b| b.timestamp.cmp(&a.timestamp)); // Most recent first
+
         v_flex()
             .gap_2()
-            // Documents header
+            // Timeline header
             .child(
                 h_flex()
                     .justify_between()
                     .items_center()
                     .child(
-                        Label::new("Documents")
+                        Label::new("Recent Activity")
                             .size(LabelSize::Small)
                             .color(Color::Muted),
                     )
                     .child(
-                        Label::new(format!("{}", self.documents.len()))
+                        Label::new(format!("{}", sorted_entries.len()))
                             .size(LabelSize::XSmall)
                             .color(Color::Muted),
                     ),
             )
-            // Documents elements
-            .children(self.documents.iter().enumerate().map(|(i, document)| {
-                ListItem::new(("doc", i))
+            // Timeline entries
+            .children(sorted_entries.iter().enumerate().map(|(i, entry)| {
+                let path_parts: Vec<&str> = entry.path.split('/').collect();
+                let filename = path_parts.last().unwrap_or(&"").to_string();
+                let is_directory = !filename.contains('.');
+
+                ListItem::new(("timeline_entry", i))
                     .spacing(ListItemSpacing::Dense)
                     .start_slot(
-                        Icon::new(IconName::File)
+                        Icon::new(self.get_file_icon(&entry.path))
                             .size(IconSize::Small)
-                            .color(Color::Default),
+                            .color(if is_directory {
+                                Color::Accent
+                            } else {
+                                Color::Default
+                            }),
                     )
                     .child(
                         v_flex()
+                            .gap_1()
                             .child(
-                                Label::new(&document.path)
-                                    .size(LabelSize::Small)
-                                    .color(Color::Default),
+                                h_flex()
+                                    .gap_2()
+                                    .items_center()
+                                    .child(
+                                        Label::new(&filename)
+                                            .size(LabelSize::Small)
+                                            .color(Color::Default),
+                                    )
+                                    .child(
+                                        h_flex()
+                                            .gap_1()
+                                            .child(
+                                                div()
+                                                    .px_1p5()
+                                                    .py_0p5()
+                                                    .bg(cx.theme().colors().element_background)
+                                                    .rounded_md()
+                                                    .child(
+                                                        Label::new(&entry.namespace_id)
+                                                            .size(LabelSize::XSmall)
+                                                            .color(Color::Accent),
+                                                    ),
+                                            )
+                                            .child(
+                                                div()
+                                                    .px_1p5()
+                                                    .py_0p5()
+                                                    .bg(cx.theme().colors().element_background)
+                                                    .rounded_md()
+                                                    .child(
+                                                        Label::new(&entry.subspace_id)
+                                                            .size(LabelSize::XSmall)
+                                                            .color(Color::Muted),
+                                                    ),
+                                            ),
+                                    ),
                             )
                             .child(
                                 h_flex()
                                     .gap_2()
+                                    .items_center()
                                     .child(
-                                        Label::new(format!("{} bytes", document.size))
+                                        Label::new(&entry.path)
                                             .size(LabelSize::XSmall)
                                             .color(Color::Muted),
                                     )
@@ -641,7 +692,7 @@ impl WillowPanel {
                                         Label::new("•").size(LabelSize::XSmall).color(Color::Muted),
                                     )
                                     .child(
-                                        Label::new(&document.author)
+                                        Label::new(&self.format_timestamp(entry.timestamp))
                                             .size(LabelSize::XSmall)
                                             .color(Color::Muted),
                                     ),
@@ -651,25 +702,25 @@ impl WillowPanel {
                         h_flex()
                             .gap_1()
                             .child(IconButton::new(("view", i), IconName::Eye).on_click({
-                                let document = document.clone();
+                                let entry_clone = entry.clone();
                                 cx.listener(move |this, _event, _window, cx| {
                                     this.dialog_state = DialogState::ViewDocument {
-                                        document: document.clone(),
+                                        entry: entry_clone.clone(),
                                     };
                                     cx.notify();
                                 })
                             }))
                             .child(IconButton::new(("delete", i), IconName::Trash).on_click({
-                                let document = document.clone();
+                                let entry_clone = entry.clone();
                                 cx.listener(move |this, _event, window, cx| {
-                                    this.delete_document(&document, window, cx);
+                                    this.delete_document(&entry_clone, window, cx);
                                 })
                             })),
                     )
             }))
-            .when(self.documents.is_empty(), |this| {
+            .when(sorted_entries.is_empty(), |this| {
                 this.child(
-                    Label::new("No documents yet. Create one to get started!")
+                    Label::new("No entries yet. Create some content to get started!")
                         .size(LabelSize::XSmall)
                         .color(Color::Muted),
                 )
@@ -722,16 +773,7 @@ impl Render for WillowPanel {
                     v_flex()
                         .gap_3()
                         // Subspaces section
-                        .child(self.render_subspaces(cx))
-                        // Horizontal divider
-                        .child(
-                            div()
-                                .h(px(1.))
-                                .w_full()
-                                .bg(cx.theme().colors().border_variant),
-                        )
-                        // Documents section
-                        .child(self.render_documents(cx)),
+                        .child(self.render_timeline(cx)),
                 ),
             );
 

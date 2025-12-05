@@ -1,12 +1,13 @@
+use crate::gpui;
+use crate::workspace::ui::{
+    ActiveTheme, Clickable, Color, Icon, IconButton, IconName, IconSize, Label, LabelCommon,
+    LabelSize, ListItem, ListItemSpacing, h_flex, v_flex,
+};
+use crate::workspace::{Item, Workspace};
 use gpui::{
     App, AppContext as _, Context, EventEmitter, FocusHandle, Focusable, ParentElement as _,
     Render, SharedString, actions, div, *,
 };
-use workspace::ui::{
-    ActiveTheme, Clickable, Color, Icon, IconButton, IconName, IconSize, Label, LabelCommon,
-    LabelSize, ListItem, ListItemSpacing, h_flex, v_flex,
-};
-use workspace::{Item, Workspace};
 
 actions!(
     workspace,

@@ -1,5 +1,7 @@
+use willow_rummager::gpui::Application;
+
 fn main() {
-    gpui::Application::new()
+    Application::new()
         .add_plugins(zed::init)
         .add_plugins(willow_rummager::init)
         .run();
