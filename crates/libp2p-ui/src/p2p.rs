@@ -6,8 +6,13 @@ use std::{
 use anyhow::{Context, Error};
 use culpa::throws;
 use libp2p::{
-    Multiaddr, Swarm, dcutr, futures::StreamExt as _, gossipsub, identify, mdns,
-    multiaddr::Protocol, noise, ping, relay, tcp, yamux,
+    Multiaddr, Swarm, dcutr,
+    futures::StreamExt as _,
+    gossipsub, identify,
+    kad::{self, store::MemoryStore},
+    mdns,
+    multiaddr::Protocol,
+    noise, ping, relay, tcp, yamux,
 };
 use libp2p_swarm::{NetworkBehaviour, SwarmEvent};
 
@@ -19,6 +24,7 @@ pub struct PeerieBehaviour {
     pub dcutr: dcutr::Behaviour,
     pub gossipsub: gossipsub::Behaviour,
     pub identify: identify::Behaviour,
+    pub kad: kad::Behaviour<MemoryStore>,
     pub mdns: mdns::tokio::Behaviour,
     pub ping: ping::Behaviour,
     pub stream: libp2p_stream::Behaviour,
@@ -66,6 +72,11 @@ impl PeerieBehaviour {
                     key.public(),
                 ));
 
+                let kad = kad::Behaviour::new(
+                    key.public().to_peer_id(),
+                    MemoryStore::new(key.public().to_peer_id()),
+                );
+
                 let mdns = mdns::tokio::Behaviour::new(
                     mdns::Config::default(),
                     key.public().to_peer_id(),
@@ -82,6 +93,7 @@ impl PeerieBehaviour {
                     dcutr,
                     gossipsub,
                     identify,
+                    kad,
                     mdns,
                     ping,
                     stream,
@@ -102,22 +114,16 @@ impl PeerieBehaviour {
         swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
 
         // Wait to listen on all interfaces.
-        let mut sleep = tokio::time::sleep(std::time::Duration::from_secs(1));
-        tokio::pin!(sleep);
-        loop {
-            tokio::select! {
-                event = swarm.next() => {
-                    match event.unwrap() {
-                        SwarmEvent::NewListenAddr { address, .. } => {
-                            tracing::info!(%address, "Listening on address");
-                        }
-                        event => panic!("{event:?}"),
-                    }
-                }
-                _ = &mut sleep => {
-                    // Likely listening on all interfaces now, thus continuing by breaking the loop.
-                    break;
-                }
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        match swarm.next().await.unwrap() {
+            SwarmEvent::NewListenAddr {
+                listener_id,
+                address,
+            } => {
+                tracing::info!(%address, "Listening on address");
+            }
+            e => {
+                tracing::error!(?e, "Unexpected event");
             }
         }
 
