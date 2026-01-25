@@ -1,5 +1,52 @@
 # Project
 
+# 2026 Jan 28
+
+I want to write down some guiding values and principles for this project, because
+I want to pull this together from a mess of ideas into something actionable and useful.
+
+## Project Vision and Values
+
+Today, I see the centralization of software as a threat to Democracy. In the last
+few decades, we have allowed our core productivity tools to shift from the Desktop
+to the Cloud. At the time, the appeal was a profound increase in the ability to
+collaborate, such as multi-cursor editing in google docs. However, it came at the
+cost of data ownership, privacy, and soverignty, because the form-factor of Cloud
+technology puts the data in control of the providers, not the users.
+
+Consider the Browser, which is a marvel of technology. It is less of an application
+and more of an application-platform. It's ultimately a program that can fetch content
+from a network and render it to the screen. The content may be static, like a blog,
+or dynamic, drawn by application code (JS/WASM) that itself is a form of content.
+The Browser is the platform which provides the tools to draw on screen, make network
+requests, play audio and video, and read/write to disk, and also takes on the responsibility
+for isolating sites from one another to protect user privacy.
+
+However, the greatest weakness of the Browser is that it fundamentally is only a **portal**
+to view data that lives remotely on a server. When you use any web service, you're
+not interacting with _your data on somebody else's machine_, you're interacting with
+_somebody else's data **about you** on their machine_. Under this model, users are at
+the mercy of application providers:
+
+- Content that was once available to you may become unavailable
+- Content that was once free may become paywalled
+- Data that you consider private may be used by providers to train AI
+- Data about you may be shared with arbitrary third-parties
+- Providers may track your browsing and build a profile of you for purposes
+  like targeted advertising or surveillance
+- Your interactions with other users may be tracked and profiled
+- In social media settings, the content you see is determined _by the provider_
+  rather than by you, so people can be divided and isolated in bubbles.
+- Content can be suppressed or boosted by providers, influencing public opinion
+  and radicalizing users
+
+The vision of this project is to create a next-generation application platform which
+puts users in control of their data by using durable local-first and peer-to-peer
+foundations. The spirit of this project is staunchly anti-capitalist, anti-fascist,
+pro-democracy, and pro-sovereignty. Human beings should be able to use digital systems
+while maintaining an expectation of privacy and anonymity, while also enjoying the
+capabilities of live collaboration and group sharing.
+
 # 2026 Jan 6
 
 Status
