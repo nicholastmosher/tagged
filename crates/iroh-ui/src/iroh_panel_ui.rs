@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use anyhow::bail;
-use iroh::Endpoint;
 use iroh::protocol::{ProtocolHandler, Router};
+use iroh::{Endpoint, EndpointAddr};
 use iroh_blobs::store::mem::MemStore;
 use iroh_blobs::{ALPN as BLOBS_ALPN, BlobsProtocol};
 use iroh_docs::{ALPN as DOCS_ALPN, protocol::Docs};
@@ -10,12 +10,12 @@ use iroh_gossip::{ALPN as GOSSIP_ALPN, Gossip, TopicId};
 use tracing::{info, warn};
 use zed::unstable::editor::Editor;
 use zed::unstable::gpui::{
-    self, App, AppContext as _, ClipboardItem, Context, Entity, EventEmitter, FocusHandle,
-    Focusable, ParentElement as _, Render, Styled, Window, div,
+    self, App, AppContext as _, ClickEvent, ClipboardItem, Context, Entity, EventEmitter,
+    FocusHandle, Focusable, ParentElement as _, Render, Styled, Window, div,
 };
 use zed::unstable::ui::{
     Button, Clickable, FluentBuilder, IconPosition, IconSize, IntoElement, LabelSize, ListItem,
-    Pixels,
+    Pixels, SharedString,
 };
 use zed::unstable::workspace::Workspace;
 use zed::unstable::workspace::dock::PanelEvent;
@@ -63,7 +63,7 @@ pub struct IrohPanel {
     remote_ticket_editor: Entity<Editor>,
     iroh: Option<Iroh>,
     spaces: Vec<String>,
-    topics: HashMap<TopicId, (Ticket, Entity<TopicChatUi>)>,
+    topics: HashMap<TopicId, Entity<TopicChatUi>>,
     width: Option<Pixels>,
     workspace: Entity<Workspace>,
 }
@@ -252,45 +252,18 @@ impl IrohPanel {
         div()
             .flex_grow()
             .child("Topics:")
-            .children(self.topics.iter().map(|(topic, (ticket, _ui))| {
-                div()
-                    .pl_2()
-                    .child(
-                        Button::new("topic-{topic}", {
-                            let topic = topic.to_string();
-                            format!("Copy Topic .+{}", &topic[topic.len() - 8..])
-                        })
-                        .label_size(LabelSize::Small)
-                        .icon(IconName::Copy)
-                        .icon_size(IconSize::Small)
-                        .icon_position(IconPosition::Start)
-                        .on_click(cx.listener({
-                            let topic = topic.to_string();
-                            move |_this, _, _window, cx| {
-                                cx.write_to_clipboard(ClipboardItem::new_string(topic.to_string()));
-                                info!("Clicked Copy Topic");
-                            }
-                        })),
-                    )
-                    .child(
-                        Button::new("topic-ticket-{ticket}", {
-                            let ticket = ticket.to_string();
-                            format!("Copy Ticket .+{}", &ticket[ticket.len() - 8..])
-                        })
-                        .label_size(LabelSize::Small)
-                        .icon(IconName::Copy)
-                        .icon_size(IconSize::Small)
-                        .icon_position(IconPosition::Start)
-                        .on_click(cx.listener({
-                            let ticket = ticket.to_string();
-                            move |_this, _, _window, cx| {
-                                cx.write_to_clipboard(ClipboardItem::new_string(
-                                    ticket.to_string(),
-                                ));
-                                info!("Clicked Copy Ticket");
-                            }
-                        })),
-                    )
+            .children(self.topics.iter().map(|(topic_id, _ui)| {
+                div().pl_2().child(
+                    Button::new(SharedString::from(format!("topic-{topic_id}")), {
+                        let topic = topic_id.to_string();
+                        format!("Copy Ticket .+{}", &topic[topic.len() - 8..])
+                    })
+                    .label_size(LabelSize::Small)
+                    .icon(IconName::Copy)
+                    .icon_size(IconSize::Small)
+                    .icon_position(IconPosition::Start)
+                    .on_click(cx.listener(Self::click_copy_ticket(*topic_id))),
+                )
             }))
     }
 
@@ -315,26 +288,38 @@ impl IrohPanel {
             )
     }
 
+    fn click_copy_ticket(
+        topic_id: TopicId,
+    ) -> impl Fn(&mut Self, &ClickEvent, &mut Window, &mut Context<Self>) {
+        move |this, _, _window, cx| {
+            let Some(me) = this.iroh.as_ref().map(|it| it.endpoint.addr()) else {
+                warn!("missing iroh on copy ticket");
+                return;
+            };
+            let ticket = Ticket {
+                topic_id,
+                endpoints: vec![me],
+            };
+            cx.write_to_clipboard(ClipboardItem::new_string(ticket.to_string()));
+            info!("Clicked Copy Ticket");
+        }
+    }
+
     fn click_create_topic(
         &mut self,
-        _event: &gpui::ClickEvent,
+        _event: &ClickEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         let topic_id = TopicId::from_bytes(rand::random());
-        let me = self.iroh.as_ref().unwrap().endpoint.addr();
-        let ticket = Ticket {
-            topic_id,
-            endpoints: vec![me],
-        };
-
-        self.create_topic_ui(ticket, window, cx);
+        let endpoints = vec![];
+        self.create_topic_ui(topic_id, endpoints, window, cx);
         info!("Clicked Create Topic");
     }
 
     fn click_connect_remote(
         &mut self,
-        _event: &gpui::ClickEvent,
+        _event: &ClickEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -348,17 +333,23 @@ impl IrohPanel {
             }
         };
 
-        self.create_topic_ui(ticket, window, cx);
+        self.create_topic_ui(ticket.topic_id, ticket.endpoints, window, cx);
         info!("Clicked Connect");
     }
 
-    fn create_topic_ui(&mut self, ticket: Ticket, window: &mut Window, cx: &mut Context<Self>) {
+    fn create_topic_ui(
+        &mut self,
+        topic_id: TopicId,
+        endpoints: Vec<EndpointAddr>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(iroh) = self.iroh.as_ref() else {
             return;
         };
 
         let topic_chat_ui =
-            cx.new(|cx| TopicChatUi::new(iroh.clone(), ticket.topic_id, window, cx));
+            cx.new(|cx| TopicChatUi::new(iroh.clone(), topic_id, endpoints, window, cx));
 
         let workspace = self.workspace.clone();
         workspace.update(cx, |workspace, cx| {
@@ -371,7 +362,7 @@ impl IrohPanel {
             );
         });
 
-        self.topics.insert(ticket.topic_id, (ticket, topic_chat_ui));
+        self.topics.insert(topic_id, topic_chat_ui);
     }
 }
 

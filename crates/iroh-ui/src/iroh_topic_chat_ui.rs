@@ -1,5 +1,6 @@
 use anyhow::{Context as _, bail};
 use bytes::Bytes;
+use iroh::EndpointAddr;
 use iroh_gossip::{TopicId, api::Message};
 use tracing::{info, warn};
 use zed::unstable::{
@@ -34,7 +35,6 @@ pub struct TopicChatUi {
     messages: Vec<String>,
     sender: Option<flume::Sender<String>>,
     title: String,
-    topic_id: TopicId,
     topic_editor: Entity<Editor>,
 }
 
@@ -43,6 +43,7 @@ impl TopicChatUi {
         //
         iroh: Iroh,
         topic_id: TopicId,
+        endpoints: Vec<EndpointAddr>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -60,12 +61,12 @@ impl TopicChatUi {
                     location = %core::panic::Location::caller(),
                     "Spawning gossip topic"
                 );
-                let bootstrap = vec![];
+                let bootstrap = endpoints.iter().map(|it| it.id).collect();
                 let topic = iroh
                     .gossip
-                    .subscribe(topic_id, bootstrap)
+                    .subscribe_and_join(topic_id, bootstrap)
                     .await
-                    .with_context(|| format!("failed to subscribe to topic {topic_id}"))?;
+                    .with_context(|| format!("failed to subscribe to topic {}", topic_id))?;
                 let (tx, rx) = flume::bounded::<String>(10);
                 let (sender, mut receiver) = topic.split();
 
@@ -128,7 +129,6 @@ impl TopicChatUi {
             messages: Default::default(),
             sender: None,
             title: topic_id.to_string(),
-            topic_id,
             topic_editor,
         }
     }
