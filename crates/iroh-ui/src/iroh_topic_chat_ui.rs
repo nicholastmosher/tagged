@@ -117,7 +117,7 @@ impl TopicChatUi {
 
         let topic_editor = cx.new(|cx| {
             let mut editor = Editor::single_line(window, cx);
-            editor.set_placeholder_text("Remote endpoint URL", window, cx);
+            editor.set_placeholder_text("to send", window, cx);
             editor
         });
 
@@ -197,7 +197,8 @@ impl TopicChatUi {
             //
             .debug_border()
             .text_2xl()
-            .child(self.title.to_string())
+            .text_ellipsis()
+            .child(format!("Topic {}", self.title))
     }
 
     fn render_body(

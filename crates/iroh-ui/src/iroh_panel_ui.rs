@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use anyhow::bail;
-use iroh::protocol::{ProtocolHandler, Router};
+use iroh::endpoint::Connection;
+use iroh::protocol::{AcceptError, ProtocolHandler, Router};
 use iroh::{Endpoint, EndpointAddr};
 use iroh_blobs::store::mem::MemStore;
 use iroh_blobs::{ALPN as BLOBS_ALPN, BlobsProtocol};
@@ -55,6 +57,7 @@ pub struct Iroh {
     pub blobs: BlobsProtocol,
     pub gossip: Gossip,
     pub docs: Docs,
+    pub handler: CustomHandler,
 }
 
 pub struct IrohPanel {
@@ -69,17 +72,27 @@ pub struct IrohPanel {
 }
 
 #[derive(Debug, Clone)]
-struct Handler;
-impl Handler {
-    const APLN: &[u8] = b"/test/docs";
+pub struct CustomHandler(Arc<HandlerState>);
+#[derive(Debug)]
+struct HandlerState {
+    //
 }
-impl ProtocolHandler for Handler {
+
+impl CustomHandler {
+    const APLN: &[u8] = b"/test/handler";
+
+    pub fn new() -> Self {
+        Self(Arc::new(HandlerState {}))
+    }
+}
+
+impl ProtocolHandler for CustomHandler {
     fn accept(
         &self,
-        _connection: iroh::endpoint::Connection,
-    ) -> impl Future<Output = Result<(), iroh::protocol::AcceptError>> + Send {
+        connection: Connection,
+    ) -> impl Future<Output = Result<(), AcceptError>> + Send {
         async move {
-            //
+            let (sender, recv) = connection.accept_bi().await?;
             info!("Accepted inbound connection");
             Ok(())
         }
@@ -107,11 +120,12 @@ impl IrohPanel {
                 let docs = Docs::memory()
                     .spawn(endpoint.clone(), (*blobs).clone(), gossip.clone())
                     .await?;
+                let handler = CustomHandler::new();
                 let router = Router::builder(endpoint.clone())
                     .accept(BLOBS_ALPN, blobs.clone())
                     .accept(GOSSIP_ALPN, gossip.clone())
                     .accept(DOCS_ALPN, docs.clone())
-                    .accept(Handler::APLN, Handler)
+                    .accept(CustomHandler::APLN, handler.clone())
                     .spawn();
                 panel.update(cx, move |panel, _cx| {
                     panel.iroh = Some(Iroh {
@@ -120,6 +134,7 @@ impl IrohPanel {
                         blobs,
                         gossip,
                         docs,
+                        handler,
                     });
                 })?;
 
@@ -151,13 +166,18 @@ impl IrohPanel {
         _window: &mut Window,
         _cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        div().children(self.spaces.iter().enumerate().map(|(i, it)| {
-            div().p_2().child(
-                ListItem::new(i)
-                    .rounded()
-                    .child(div().p_4().child(it.to_string())),
-            )
-        }))
+        div()
+            //
+            .children(self.spaces.iter().enumerate().map(|(i, it)| {
+                div()
+                    //
+                    .p_2()
+                    .child(
+                        ListItem::new(i)
+                            .rounded()
+                            .child(div().p_4().child(it.to_string())),
+                    )
+            }))
     }
 
     fn render_widget_feed(
