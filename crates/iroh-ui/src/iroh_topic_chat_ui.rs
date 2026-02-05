@@ -14,7 +14,7 @@ use zed::unstable::{
     workspace::Item,
 };
 
-use crate::{DebugViewExt as _, Ticket, iroh_panel_ui::Iroh};
+use crate::{DebugViewExt as _, iroh_panel_ui::Iroh};
 
 pub fn init(cx: &mut App) {
     //
@@ -25,6 +25,7 @@ pub fn init(cx: &mut App) {
 }
 
 /// Tab item UI for an instance of a topic chat
+#[allow(unused)]
 pub struct TopicChatUi {
     //
     iroh: Iroh,
@@ -32,7 +33,6 @@ pub struct TopicChatUi {
 
     messages: Vec<String>,
     sender: Option<flume::Sender<String>>,
-    ticket: Ticket,
     title: String,
     topic_id: TopicId,
     topic_editor: Entity<Editor>,
@@ -40,19 +40,13 @@ pub struct TopicChatUi {
 
 impl TopicChatUi {
     pub fn new(
+        //
         iroh: Iroh,
         topic_id: TopicId,
-        topic_name: String,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
         info!("Creating TopicChat");
-
-        let me = iroh.endpoint.addr();
-        let ticket = Ticket {
-            topic_id,
-            endpoints: vec![me],
-        };
 
         // Spawn gossip topic
         cx.spawn({
@@ -133,8 +127,7 @@ impl TopicChatUi {
             focus_handle: cx.focus_handle(),
             messages: Default::default(),
             sender: None,
-            ticket,
-            title: topic_name,
+            title: topic_id.to_string(),
             topic_id,
             topic_editor,
         }

@@ -128,16 +128,16 @@ impl IrohPanel {
         })
         .detach();
 
-        let remote_endpoint_editor = cx.new(|cx| {
+        let ticket_editor = cx.new(|cx| {
             let mut editor = Editor::single_line(window, cx);
-            editor.set_placeholder_text("Remote endpoint URL", window, cx);
+            editor.set_placeholder_text("Ticket", window, cx);
             editor
         });
 
         Self {
             dock_position: DockPosition::Left,
             focus_handle: cx.focus_handle(),
-            remote_ticket_editor: remote_endpoint_editor,
+            remote_ticket_editor: ticket_editor,
             iroh: None,
             spaces: vec!["Home".to_string(), "Family".to_string(), "Work".to_string()],
             topics: Default::default(),
@@ -321,37 +321,14 @@ impl IrohPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(iroh) = self.iroh.as_ref() else {
-            return;
-        };
-
         let topic_id = TopicId::from_bytes(rand::random());
         let me = self.iroh.as_ref().unwrap().endpoint.addr();
         let ticket = Ticket {
             topic_id,
             endpoints: vec![me],
         };
-        let topic_name = topic_id.to_string();
-        let workspace = self.workspace.clone();
-        let topic_id = TopicId::from_bytes(rand::random());
-        let topic_chat_ui =
-            cx.new(|cx| TopicChatUi::new(iroh.clone(), topic_id, topic_name, window, cx));
 
-        workspace.update(cx, |workspace, cx| {
-            //
-            workspace.add_item_to_active_pane(
-                Box::new(topic_chat_ui.clone()),
-                Some(0),
-                true,
-                window,
-                cx,
-            );
-        });
-
-        //
-
-        self.topics.insert(topic_id, (ticket, topic_chat_ui));
-
+        self.create_topic_ui(ticket, window, cx);
         info!("Clicked Create Topic");
     }
 
@@ -361,10 +338,6 @@ impl IrohPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(iroh) = self.iroh.as_ref() else {
-            return;
-        };
-
         let ticket_text = self.remote_ticket_editor.read(cx).text(cx);
         let ticket_result = ticket_text.parse::<Ticket>();
         let ticket = match ticket_result {
@@ -375,17 +348,19 @@ impl IrohPanel {
             }
         };
 
-        let workspace = self.workspace.clone();
-        let topic_chat_ui = cx.new(|cx| {
-            TopicChatUi::new(
-                iroh.clone(),
-                ticket.topic_id,
-                ticket.topic_id.to_string(),
-                window,
-                cx,
-            )
-        });
+        self.create_topic_ui(ticket, window, cx);
+        info!("Clicked Connect");
+    }
 
+    fn create_topic_ui(&mut self, ticket: Ticket, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(iroh) = self.iroh.as_ref() else {
+            return;
+        };
+
+        let topic_chat_ui =
+            cx.new(|cx| TopicChatUi::new(iroh.clone(), ticket.topic_id, window, cx));
+
+        let workspace = self.workspace.clone();
         workspace.update(cx, |workspace, cx| {
             workspace.add_item_to_active_pane(
                 Box::new(topic_chat_ui.clone()),
@@ -397,49 +372,6 @@ impl IrohPanel {
         });
 
         self.topics.insert(ticket.topic_id, (ticket, topic_chat_ui));
-
-        // cx.spawn({
-        //     let iroh = iroh.clone();
-        //     async move |_this, cx| {
-        //         //
-        //         let endpoint_ids = ticket.endpoints.iter().map(|it| it.id).collect();
-        //         let (sender, mut receiver) = iroh
-        //             .gossip
-        //             .subscribe_and_join(ticket.topic_id, endpoint_ids)
-        //             .await?
-        //             .split();
-
-        //         // Receiver
-        //         cx.spawn({
-        //             //
-        //             async move |_cx| {
-        //                 //
-        //                 while let Some(event) = receiver.try_next().await? {
-        //                     let iroh_gossip::api::Event::Received(message) = event else {
-        //                         continue;
-        //                     };
-
-        //                     let bytes = message.content;
-        //                     let text = String::from_utf8_lossy(&bytes);
-        //                     info!(%text, "Received:")
-        //                 }
-
-        //                 warn!("Receiver task quit");
-        //                 anyhow::Ok(())
-        //             }
-        //         })
-        //         .detach();
-
-        //         let me = iroh.endpoint.id();
-        //         sender
-        //             .broadcast(Bytes::from(format!("{me} joined")))
-        //             .await?;
-        //         anyhow::Ok(())
-        //     }
-        // })
-        // .detach_and_log_err(cx);
-
-        info!("Clicked Connect");
     }
 }
 
