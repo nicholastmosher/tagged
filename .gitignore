@@ -1,3 +1,6 @@
 /target
 vendored
 .helix
+.env
+.DS_Store
+.ignored

@@ -1,20 +1,28 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::bail;
 use iroh::endpoint::Connection;
 use iroh::protocol::{AcceptError, ProtocolHandler, Router};
 use iroh::{Endpoint, EndpointAddr};
+use iroh_automerge_repo::IrohRepo;
 use iroh_blobs::store::mem::MemStore;
 use iroh_blobs::{ALPN as BLOBS_ALPN, BlobsProtocol};
+use iroh_docs::api::protocol::{AddrInfoOptions, ShareMode};
+use iroh_docs::store::Query;
 use iroh_docs::{ALPN as DOCS_ALPN, protocol::Docs};
 use iroh_gossip::{ALPN as GOSSIP_ALPN, Gossip, TopicId};
+use samod::storage::TokioFilesystemStorage;
+use samod::{PeerId, Repo};
 use tracing::{info, warn};
+use zed::unstable::db::smol::stream::StreamExt as _;
 use zed::unstable::editor::Editor;
 use zed::unstable::gpui::{
     self, App, AppContext as _, ClickEvent, ClipboardItem, Context, Entity, EventEmitter,
     FocusHandle, Focusable, ParentElement as _, Render, Styled, Window, div,
 };
+use zed::unstable::paths::data_dir;
 use zed::unstable::ui::{
     Button, Clickable, FluentBuilder, IconPosition, IconSize, IntoElement, LabelSize, ListItem,
     Pixels, SharedString,
@@ -52,6 +60,7 @@ actions!(workspace, [ToggleIrohPanel]);
 #[non_exhaustive]
 #[derive(Clone)]
 pub struct Iroh {
+    pub automerge: IrohRepo,
     pub endpoint: Endpoint,
     pub router: Router,
     pub blobs: BlobsProtocol,
@@ -99,6 +108,12 @@ impl ProtocolHandler for CustomHandler {
     }
 }
 
+fn iroh_dir() -> PathBuf {
+    let iroh_dir = zed::unstable::paths::data_dir().join("iroh");
+    std::fs::create_dir_all(&iroh_dir).expect("create zed/iroh directory");
+    iroh_dir
+}
+
 impl IrohPanel {
     pub fn new(workspace: Entity<Workspace>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         // Initialize Iroh endpoint
@@ -117,18 +132,74 @@ impl IrohPanel {
                 let store = MemStore::new();
                 let blobs = BlobsProtocol::new(&store, None);
                 let gossip = iroh_gossip::Gossip::builder().spawn(endpoint.clone());
-                let docs = Docs::memory()
+                let docs = Docs::persistent(zed::unstable::paths::data_dir().to_path_buf())
                     .spawn(endpoint.clone(), (*blobs).clone(), gossip.clone())
                     .await?;
+
+                // Docs experiments
+                {
+                    let author = docs.api().author_default().await?;
+                    let list = docs.api().list().await?;
+                    tokio::pin!(list);
+                    while let Some((namespace_id, capability)) = list.try_next().await? {
+                        //
+                        match capability {
+                            iroh_docs::CapabilityKind::Write => todo!(),
+                            iroh_docs::CapabilityKind::Read => todo!(),
+                        }
+                    }
+                    let doc = docs.api().create().await?;
+                    let namespace = doc.id();
+                    let doc_ticket = doc.share(ShareMode::Write, AddrInfoOptions::Relay).await?;
+                    let (doc, doc_stream) = docs.api().import_and_subscribe(doc_ticket).await?;
+                    tokio::pin!(doc_stream);
+                    while let Some(item) = doc_stream.try_next().await? {
+                        //
+                        match item {
+                            iroh_docs::engine::LiveEvent::InsertLocal { entry } => todo!(),
+                            iroh_docs::engine::LiveEvent::InsertRemote {
+                                from,
+                                entry,
+                                content_status,
+                            } => todo!(),
+                            iroh_docs::engine::LiveEvent::ContentReady { hash } => todo!(),
+                            iroh_docs::engine::LiveEvent::PendingContentReady => todo!(),
+                            iroh_docs::engine::LiveEvent::NeighborUp(public_key) => todo!(),
+                            iroh_docs::engine::LiveEvent::NeighborDown(public_key) => todo!(),
+                            iroh_docs::engine::LiveEvent::SyncFinished(sync_event) => todo!(),
+                        }
+                    }
+
+                    let doc_stream = doc.get_many(Query::all()).await?;
+                    tokio::pin!(doc_stream);
+                    while let Some(entry) = doc_stream.try_next().await? {
+                        //
+                        let id = entry.id();
+                        let record = entry.record();
+                        let data = entry.to_vec();
+                    }
+                    // doc.share(mode, addr_options)
+                }
                 let handler = CustomHandler::new();
+                // let (sync_tx, sync_rx) = tokio::sync::mpsc::channel(10);
+                // let automerge = IrohAutomergeProtocol::new(Automerge::new(), sync_tx);
+                let repo = Repo::build_tokio()
+                    //
+                    .with_peer_id(PeerId::from_string(endpoint.id().to_string()))
+                    .with_storage(TokioFilesystemStorage::new(data_dir()))
+                    .load()
+                    .await;
+                let automerge = IrohRepo::new(endpoint.clone(), repo);
                 let router = Router::builder(endpoint.clone())
                     .accept(BLOBS_ALPN, blobs.clone())
                     .accept(GOSSIP_ALPN, gossip.clone())
                     .accept(DOCS_ALPN, docs.clone())
+                    // .accept(IrohAutomergeProtocol::ALPN, automerge)
                     .accept(CustomHandler::APLN, handler.clone())
                     .spawn();
                 panel.update(cx, move |panel, _cx| {
                     panel.iroh = Some(Iroh {
+                        automerge,
                         endpoint,
                         router,
                         blobs,
