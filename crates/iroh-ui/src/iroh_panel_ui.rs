@@ -4,20 +4,18 @@ use std::sync::Arc;
 
 use anyhow::bail;
 use automerge::Automerge;
+use autosurgeon::reconcile;
 use iroh::endpoint::Connection;
 use iroh::protocol::{AcceptError, ProtocolHandler, Router};
 use iroh::{Endpoint, EndpointAddr};
 use iroh_automerge_repo::IrohRepo;
 use iroh_blobs::store::mem::MemStore;
 use iroh_blobs::{ALPN as BLOBS_ALPN, BlobsProtocol};
-use iroh_docs::api::protocol::{AddrInfoOptions, ShareMode};
-use iroh_docs::store::Query;
 use iroh_docs::{ALPN as DOCS_ALPN, protocol::Docs};
 use iroh_gossip::{ALPN as GOSSIP_ALPN, Gossip, TopicId};
 use samod::storage::TokioFilesystemStorage;
-use samod::{DocHandle, PeerId, Repo};
+use samod::{PeerId, Repo};
 use tracing::{info, warn};
-use zed::unstable::db::smol::stream::StreamExt as _;
 use zed::unstable::editor::Editor;
 use zed::unstable::gpui::{
     self, App, AppContext as _, ClickEvent, ClipboardItem, Context, Entity, EventEmitter,
@@ -25,8 +23,8 @@ use zed::unstable::gpui::{
 };
 use zed::unstable::paths::data_dir;
 use zed::unstable::ui::{
-    Button, Clickable, ContextMenu, FluentBuilder, IconPosition, IconSize, IntoElement, LabelSize,
-    ListItem, Pixels, SharedString,
+    Button, Clickable, FluentBuilder, IconPosition, IconSize, IntoElement, LabelSize, ListItem,
+    Pixels, SharedString,
 };
 use zed::unstable::workspace::Workspace;
 use zed::unstable::workspace::dock::PanelEvent;
@@ -35,7 +33,7 @@ use zed::unstable::{
     workspace::{Panel, dock::DockPosition, ui::IconName},
 };
 
-use crate::iroh_automerge_chat_ui::AutomergeChatUi;
+use crate::iroh_automerge_chat_ui::{AutomergeChatUi, AutomergeTicket, DocContent};
 use crate::iroh_topic_chat_ui::TopicChatUi;
 use crate::{DebugViewExt as _, Ticket};
 
@@ -75,7 +73,8 @@ pub struct IrohPanel {
     docs: Vec<Entity<AutomergeChatUi>>,
     dock_position: DockPosition,
     focus_handle: FocusHandle,
-    remote_ticket_editor: Entity<Editor>,
+    remote_topic_editor: Entity<Editor>,
+    remote_doc_editor: Entity<Editor>,
     iroh: Option<Iroh>,
     spaces: Vec<String>,
     topics: HashMap<TopicId, Entity<TopicChatUi>>,
@@ -104,7 +103,7 @@ impl ProtocolHandler for CustomHandler {
         connection: Connection,
     ) -> impl Future<Output = Result<(), AcceptError>> + Send {
         async move {
-            let (sender, recv) = connection.accept_bi().await?;
+            let (_sender, _recvv) = connection.accept_bi().await?;
             info!("Accepted inbound connection");
             Ok(())
         }
@@ -173,9 +172,15 @@ impl IrohPanel {
         })
         .detach();
 
-        let ticket_editor = cx.new(|cx| {
+        let remote_topic_editor = cx.new(|cx| {
             let mut editor = Editor::single_line(window, cx);
-            editor.set_placeholder_text("Ticket", window, cx);
+            editor.set_placeholder_text("Topic ticket", window, cx);
+            editor
+        });
+
+        let remote_doc_editor = cx.new(|cx| {
+            let mut editor = Editor::single_line(window, cx);
+            editor.set_placeholder_text("Doc ticket", window, cx);
             editor
         });
 
@@ -183,7 +188,8 @@ impl IrohPanel {
             docs: Default::default(),
             dock_position: DockPosition::Left,
             focus_handle: cx.focus_handle(),
-            remote_ticket_editor: ticket_editor,
+            remote_doc_editor,
+            remote_topic_editor,
             iroh: None,
             spaces: vec!["Home".to_string(), "Family".to_string(), "Work".to_string()],
             topics: Default::default(),
@@ -223,9 +229,10 @@ impl IrohPanel {
             .child(self.render_local_endpoint(window, cx))
             .child(self.render_create_topic(window, cx))
             .child(self.render_topics(window, cx))
-            .child(self.render_connect_remote(window, cx))
+            .child(self.render_connect_topic(window, cx))
             .child(self.render_create_doc(window, cx))
             .child(self.render_docs(window, cx))
+            .child(self.render_connect_doc(window, cx))
     }
 
     fn render_local_endpoint(
@@ -320,7 +327,7 @@ impl IrohPanel {
             }))
     }
 
-    fn render_connect_remote(
+    fn render_connect_topic(
         &mut self,
         _window: &mut Window,
         cx: &mut Context<Self>,
@@ -330,14 +337,31 @@ impl IrohPanel {
             .debug_border()
             .flex()
             .gap_2()
-            .child(self.remote_ticket_editor.clone())
+            .child(self.remote_topic_editor.clone())
             .child(
-                Button::new("connect-remote", "Connect")
+                Button::new("connect-topic", "Connect")
                     .label_size(LabelSize::Small)
                     .icon(IconName::Plus)
                     .icon_size(IconSize::Small)
                     .icon_position(IconPosition::Start)
-                    .on_click(cx.listener(Self::click_connect_remote)),
+                    .on_click(cx.listener(Self::click_connect_topic)),
+            )
+    }
+
+    fn render_connect_doc(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .p_1()
+            .debug_border()
+            .flex()
+            .gap_2()
+            .child(self.remote_doc_editor.clone())
+            .child(
+                Button::new("connect-doc", "Connect Doc")
+                    .label_size(LabelSize::Small)
+                    .icon(IconName::Plus)
+                    .icon_size(IconSize::Small)
+                    .icon_position(IconPosition::Start)
+                    .on_click(cx.listener(Self::click_connect_doc)),
             )
     }
 
@@ -407,13 +431,13 @@ impl IrohPanel {
         info!("Clicked Create Topic");
     }
 
-    fn click_connect_remote(
+    fn click_connect_topic(
         &mut self,
         _event: &ClickEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let ticket_text = self.remote_ticket_editor.read(cx).text(cx);
+        let ticket_text = self.remote_topic_editor.read(cx).text(cx);
         let ticket_result = ticket_text.parse::<Ticket>();
         let ticket = match ticket_result {
             Ok(ticket) => ticket,
@@ -427,10 +451,47 @@ impl IrohPanel {
         info!("Clicked Connect");
     }
 
+    fn click_connect_doc(
+        &mut self,
+        _event: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let ticket_text = self.remote_doc_editor.read(cx).text(cx);
+        let ticket_result = ticket_text.parse::<AutomergeTicket>();
+        let ticket = match ticket_result {
+            Ok(ticket) => ticket,
+            Err(error) => {
+                warn!("failed to parse ticket: {error}");
+                return;
+            }
+        };
+
+        let iroh = self.iroh.clone().unwrap();
+        for endpoint_addr in ticket.endpoints {
+            cx.spawn({
+                let iroh = iroh.clone();
+                async move |_ui, _cxx| {
+                    info!(?endpoint_addr, "Starting automerge sync");
+                    let reason = iroh.automerge.sync_with(endpoint_addr).await?;
+                    warn!(?reason, "Stopped automerge sync");
+                    anyhow::Ok(())
+                }
+            })
+            // TODO: hold Task to avoid leak
+            .detach();
+        }
+
+        // TODO: Open outbound doc connect view
+        // let ui = cx.new(|cx| AutomergeChatUi::new(cx))
+
+        info!("Clicked Connect");
+    }
+
     fn click_create_doc(
         &mut self,
         _event: &ClickEvent,
-        window: &mut Window,
+        _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         let Some(iroh) = &self.iroh else {
@@ -446,7 +507,16 @@ impl IrohPanel {
                     bail!("Failed to upgrade UI (create doc)");
                 };
 
-                let doc = Automerge::new();
+                // Initialize doc with test "Hello" message
+                let mut doc = Automerge::new();
+                {
+                    let mut tx = doc.transaction();
+                    let mut content = DocContent::new();
+                    content.messages = vec!["Hello".to_string()];
+                    reconcile(&mut tx, &content)?;
+                    tx.commit();
+                }
+
                 let doc_handle = iroh.automerge.repo().create(doc).await?;
                 let doc_ui = cx.new(|cx| AutomergeChatUi::new(doc_handle, cx))?;
 
@@ -464,11 +534,26 @@ impl IrohPanel {
     fn click_doc(
         ui: Entity<AutomergeChatUi>,
     ) -> impl Fn(&mut Self, &ClickEvent, &mut Window, &mut Context<Self>) {
-        move |this, event, window, cx| {
+        move |this, _event, window, cx| {
+            let Some(iroh) = this.iroh.as_ref() else {
+                return;
+            };
+
             let ui = ui.clone();
-            this.workspace.update(cx, move |workspace, cx| {
-                workspace.add_item_to_active_pane(Box::new(ui), Some(0), false, window, cx);
+            this.workspace.update(cx, {
+                let ui = ui.clone();
+                move |workspace, cx| {
+                    workspace.add_item_to_active_pane(Box::new(ui), Some(0), false, window, cx);
+                }
             });
+
+            let me = iroh.endpoint.addr();
+            let doc_url = ui.read(cx).doc.url();
+            let ticket = AutomergeTicket {
+                doc_url,
+                endpoints: vec![me],
+            };
+            cx.write_to_clipboard(ClipboardItem::new_string(ticket.to_string()));
         }
     }
 
