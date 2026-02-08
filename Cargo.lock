@@ -8269,6 +8269,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "iroh-automerge"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "automerge",
+ "clap",
+ "iroh",
+ "n0-error",
+ "postcard",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "iroh-automerge-repo"
 version = "0.1.0"
 dependencies = [
@@ -8637,6 +8652,7 @@ dependencies = [
  "flume 0.12.0",
  "hex",
  "iroh",
+ "iroh-automerge",
  "iroh-automerge-repo",
  "iroh-blobs",
  "iroh-docs",
@@ -17801,6 +17817,7 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
+ "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2 0.6.1",

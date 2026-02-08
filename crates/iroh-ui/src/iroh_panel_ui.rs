@@ -8,6 +8,7 @@ use autosurgeon::reconcile;
 use iroh::endpoint::Connection;
 use iroh::protocol::{AcceptError, ProtocolHandler, Router};
 use iroh::{Endpoint, EndpointAddr};
+use iroh_automerge::IrohAutomergeProtocol;
 use iroh_automerge_repo::IrohRepo;
 use iroh_blobs::store::mem::MemStore;
 use iroh_blobs::{ALPN as BLOBS_ALPN, BlobsProtocol};
@@ -19,9 +20,8 @@ use tracing::{info, warn};
 use zed::unstable::editor::Editor;
 use zed::unstable::gpui::{
     self, App, AppContext as _, ClickEvent, ClipboardItem, Context, Entity, EventEmitter,
-    FocusHandle, Focusable, ParentElement as _, Render, Styled, Window, div,
+    FocusHandle, Focusable, ParentElement as _, Render, Styled, Task, Window, div,
 };
-use zed::unstable::paths::data_dir;
 use zed::unstable::ui::{
     Button, Clickable, FluentBuilder, IconPosition, IconSize, IntoElement, LabelSize, ListItem,
     Pixels, SharedString,
@@ -36,6 +36,8 @@ use zed::unstable::{
 use crate::iroh_automerge_chat_ui::{AutomergeChatUi, AutomergeTicket, DocContent};
 use crate::iroh_topic_chat_ui::TopicChatUi;
 use crate::{DebugViewExt as _, Ticket};
+
+actions!(workspace, [ToggleIrohPanel]);
 
 pub fn init(cx: &mut App) {
     cx.observe_new(|workspace: &mut Workspace, window, cx| {
@@ -54,8 +56,6 @@ pub fn init(cx: &mut App) {
     .detach();
 }
 
-actions!(workspace, [ToggleIrohPanel]);
-
 #[allow(unused)]
 #[non_exhaustive]
 #[derive(Clone)]
@@ -69,19 +69,74 @@ pub struct Iroh {
     pub handler: CustomHandler,
 }
 
+impl Iroh {
+    async fn try_new() -> anyhow::Result<Iroh> {
+        // let mdns = iroh::discovery::mdns::MdnsDiscovery::builder();
+        let endpoint = Endpoint::builder()
+            //
+            // .discovery(mdns)
+            .bind()
+            .await?;
+        let store = MemStore::new();
+        let blobs = BlobsProtocol::new(&store, None);
+        let gossip = iroh_gossip::Gossip::builder().spawn(endpoint.clone());
+        let docs = Docs::persistent(zed::unstable::paths::data_dir().to_path_buf())
+            .spawn(endpoint.clone(), (*blobs).clone(), gossip.clone())
+            .await?;
+
+        let handler = CustomHandler::new();
+        // let (sync_tx, sync_rx) = tokio::sync::mpsc::channel(10);
+        // let automerge = IrohAutomergeProtocol::new(Automerge::new(), sync_tx);
+        let repo = Repo::build_tokio()
+            //
+            .with_peer_id(PeerId::from_string(endpoint.id().to_string()))
+            .with_storage(TokioFilesystemStorage::new(iroh_dir()))
+            .load()
+            .await;
+        let automerge = IrohRepo::new(endpoint.clone(), repo);
+        let router = Router::builder(endpoint.clone())
+            .accept(BLOBS_ALPN, blobs.clone())
+            .accept(GOSSIP_ALPN, gossip.clone())
+            .accept(DOCS_ALPN, docs.clone())
+            .accept(IrohAutomergeProtocol::ALPN, automerge.clone())
+            .accept(CustomHandler::APLN, handler.clone())
+            .spawn();
+        let iroh = Iroh {
+            automerge,
+            endpoint,
+            router,
+            blobs,
+            gossip,
+            docs,
+            handler,
+        };
+
+        Ok(iroh)
+    }
+}
+
 pub struct IrohPanel {
     docs: Vec<Entity<AutomergeChatUi>>,
     dock_position: DockPosition,
     focus_handle: FocusHandle,
-    remote_topic_editor: Entity<Editor>,
-    remote_doc_editor: Entity<Editor>,
     iroh: Option<Iroh>,
+    per_endpoint_state: HashMap<EndpointAddr, EndpointState>,
+    remote_doc_editor: Entity<Editor>,
+    remote_topic_editor: Entity<Editor>,
     spaces: Vec<String>,
     topics: HashMap<TopicId, Entity<TopicChatUi>>,
     width: Option<Pixels>,
     workspace: Entity<Workspace>,
 }
 
+#[derive(Default)]
+pub struct EndpointState {
+    chat_ui: Option<Entity<AutomergeChatUi>>,
+    doc_lookup_task: Option<Task<anyhow::Result<()>>>,
+    doc_sync_task: Option<Task<anyhow::Result<()>>>,
+}
+
+#[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct CustomHandler(Arc<HandlerState>);
 #[derive(Debug)]
@@ -125,46 +180,9 @@ impl IrohPanel {
                     bail!("iroh panel not found");
                 };
 
-                // let mdns = iroh::discovery::mdns::MdnsDiscovery::builder();
-                let endpoint = Endpoint::builder()
-                    //
-                    // .discovery(mdns)
-                    .bind()
-                    .await?;
-                let store = MemStore::new();
-                let blobs = BlobsProtocol::new(&store, None);
-                let gossip = iroh_gossip::Gossip::builder().spawn(endpoint.clone());
-                let docs = Docs::persistent(zed::unstable::paths::data_dir().to_path_buf())
-                    .spawn(endpoint.clone(), (*blobs).clone(), gossip.clone())
-                    .await?;
-
-                let handler = CustomHandler::new();
-                // let (sync_tx, sync_rx) = tokio::sync::mpsc::channel(10);
-                // let automerge = IrohAutomergeProtocol::new(Automerge::new(), sync_tx);
-                let repo = Repo::build_tokio()
-                    //
-                    .with_peer_id(PeerId::from_string(endpoint.id().to_string()))
-                    .with_storage(TokioFilesystemStorage::new(data_dir()))
-                    .load()
-                    .await;
-                let automerge = IrohRepo::new(endpoint.clone(), repo);
-                let router = Router::builder(endpoint.clone())
-                    .accept(BLOBS_ALPN, blobs.clone())
-                    .accept(GOSSIP_ALPN, gossip.clone())
-                    .accept(DOCS_ALPN, docs.clone())
-                    // .accept(IrohAutomergeProtocol::ALPN, automerge)
-                    .accept(CustomHandler::APLN, handler.clone())
-                    .spawn();
+                let iroh = Iroh::try_new().await?;
                 panel.update(cx, move |panel, _cx| {
-                    panel.iroh = Some(Iroh {
-                        automerge,
-                        endpoint,
-                        router,
-                        blobs,
-                        gossip,
-                        docs,
-                        handler,
-                    });
+                    panel.iroh = Some(iroh);
                 })?;
 
                 anyhow::Ok(())
@@ -188,9 +206,10 @@ impl IrohPanel {
             docs: Default::default(),
             dock_position: DockPosition::Left,
             focus_handle: cx.focus_handle(),
+            iroh: None,
+            per_endpoint_state: Default::default(),
             remote_doc_editor,
             remote_topic_editor,
-            iroh: None,
             spaces: vec!["Home".to_string(), "Family".to_string(), "Work".to_string()],
             topics: Default::default(),
             width: None,
@@ -457,6 +476,11 @@ impl IrohPanel {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let Some(iroh) = self.iroh.clone() else {
+            warn!("missing Iroh instance");
+            return;
+        };
+
         let ticket_text = self.remote_doc_editor.read(cx).text(cx);
         let ticket_result = ticket_text.parse::<AutomergeTicket>();
         let ticket = match ticket_result {
@@ -467,23 +491,54 @@ impl IrohPanel {
             }
         };
 
-        let iroh = self.iroh.clone().unwrap();
         for endpoint_addr in ticket.endpoints {
-            cx.spawn({
+            let doc_lookup_task = cx.spawn({
                 let iroh = iroh.clone();
-                async move |_ui, _cxx| {
-                    info!(?endpoint_addr, "Starting automerge sync");
-                    let reason = iroh.automerge.sync_with(endpoint_addr).await?;
-                    warn!(?reason, "Stopped automerge sync");
+                let doc_id = ticket.doc_id.clone();
+                let endpoint_addr = endpoint_addr.clone();
+                async move |ui, cx| {
+                    let Some(ui) = ui.upgrade() else {
+                        bail!("connect-docs: missing Entity<IrohPanel>");
+                    };
+
+                    // Spawn sync task
+                    let sync_task = cx.spawn({
+                        let iroh = iroh.clone();
+                        let endpoint_addr = endpoint_addr.clone();
+                        async move |_cx| {
+                            info!(?endpoint_addr, "Starting automerge sync");
+                            let reason = iroh.automerge.sync_with(endpoint_addr).await?;
+                            warn!(?reason, "Stopped automerge sync");
+                            anyhow::Ok(())
+                        }
+                    });
+
+                    // Search repo network for the document
+                    let Some(doc_handle) = iroh.automerge.repo().find(doc_id.clone()).await? else {
+                        bail!("failed to find document: {doc_id}");
+                    };
+
+                    // Open outbound chat view
+                    let chat_ui = cx.new(|cx| AutomergeChatUi::new(doc_handle, cx))?;
+                    ui.update(cx, |this, cx| {
+                        let per_endpoint = this
+                            .per_endpoint_state
+                            .entry(endpoint_addr)
+                            .or_insert_with(Default::default);
+                        per_endpoint.chat_ui = Some(chat_ui);
+                        per_endpoint.doc_sync_task = Some(sync_task);
+                        cx.notify();
+                    })?;
+
                     anyhow::Ok(())
                 }
-            })
-            // TODO: hold Task to avoid leak
-            .detach();
-        }
+            });
 
-        // TODO: Open outbound doc connect view
-        // let ui = cx.new(|cx| AutomergeChatUi::new(cx))
+            self.per_endpoint_state
+                .entry(endpoint_addr)
+                .or_insert_with(Default::default)
+                .doc_lookup_task = Some(doc_lookup_task);
+        }
 
         info!("Clicked Connect");
     }
@@ -548,9 +603,9 @@ impl IrohPanel {
             });
 
             let me = iroh.endpoint.addr();
-            let doc_url = ui.read(cx).doc.url();
+            let doc_id = ui.read(cx).doc.document_id().clone();
             let ticket = AutomergeTicket {
-                doc_url,
+                doc_id,
                 endpoints: vec![me],
             };
             cx.write_to_clipboard(ClipboardItem::new_string(ticket.to_string()));

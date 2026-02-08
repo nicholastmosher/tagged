@@ -1,7 +1,7 @@
 use anyhow::bail;
 use autosurgeon::{Hydrate, Reconcile};
 use iroh::EndpointAddr;
-use samod::{AutomergeUrl, DocHandle};
+use samod::{DocHandle, DocumentId};
 use serde::{Deserialize, Serialize};
 use zed::unstable::{
     db::smol::stream::StreamExt as _,
@@ -32,7 +32,7 @@ pub struct AutomergeChatUi {
 
 impl AutomergeChatUi {
     pub fn new(doc: DocHandle, cx: &mut Context<Self>) -> Self {
-        let url = doc.url();
+        // let url = doc.url();
         cx.spawn({
             let doc = doc.clone();
             async move |ui, cx| {
@@ -56,8 +56,9 @@ impl AutomergeChatUi {
                     .await??;
 
                     // Update hydrated content in UI
-                    ui.update(cx, |this, _cx| {
+                    ui.update(cx, |this, cx| {
                         this.content = content;
+                        cx.notify();
                     })?;
                 }
 
@@ -75,7 +76,7 @@ impl AutomergeChatUi {
 }
 
 impl Render for AutomergeChatUi {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         div()
             //
             .child(format!("{:#?}", self.content))
@@ -83,7 +84,7 @@ impl Render for AutomergeChatUi {
 }
 
 impl Focusable for AutomergeChatUi {
-    fn focus_handle(&self, cx: &App) -> zed::unstable::gpui::FocusHandle {
+    fn focus_handle(&self, _cx: &App) -> zed::unstable::gpui::FocusHandle {
         self.focus_handle.clone()
     }
 }
@@ -100,8 +101,9 @@ impl Item for AutomergeChatUi {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutomergeTicket {
-    #[serde(with = "serde_automerge_url")]
-    pub doc_url: AutomergeUrl,
+    // #[serde(with = "serde_automerge_url")]
+    // pub doc_url: AutomergeUrl,
+    pub doc_id: DocumentId,
     pub endpoints: Vec<EndpointAddr>,
 }
 
