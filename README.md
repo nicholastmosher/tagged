@@ -1,5 +1,47 @@
 # Project
 
+# 2026 Feb 9
+
+- I want to try making a UI for `rad`
+- Tried making rad-ui, but zed and radicle have different sqlite dependencies which
+  clash on native link. I left that attempt in a dangling branch.
+- Investigating rad's p2p, early/incomplete thoughts: it seems a message-oriented protocol
+  rather than providing a streaming p2p API. I don't think there's hole-punching like iroh,
+  though it can use tor
+
+---
+
+## Catchup notes (what I've been up to)
+
+- Playing with Iroh's API. Successfully peering over relay and exchanging topic messages.
+- Attempted using iroh-docs, ran into trouble or found the API difficult to understand.
+- Attempted using `iroh-examples/iroh-automerge-repo` approach, automerge-repo (samod)
+  seems to be having trouble `.find()`ing a document by ID.
+- I _think_ I'm running the sync task correctly, but I need to double-check.
+- I really _really_ want a working Willow store implementation, but while I'm waiting I'm
+  trying to learn the pros and cons of different p2p systems so I can imagine what a good
+  API should feel like.
+- I'd love to attempt a global-context-pattern API for Willow. For this project I'd want
+  to just integrate with Zed's entity system, but that may not be a viable design for
+  Willow proper.
+- I'm trying to imagine what a generalized version of GPUI's entity system might
+  look like. The pattern of composition is very powerful, I can't help but think there
+  should be a way to generalize it so that many different types of applications could
+  compose with each other. The main problem I see is that some apps may not want the
+  overhead of the entity map bookkeeping, not to mention GPUI's `App` type is heavy with
+  desktop-specific inherent features such as windowing. Plus some apps may not want their
+  state to be heap-allocated or restricted to a single-threaded context.
+- I was imagining something like `App<(A, B, C, ...)>`, where `A`, `B`, and `C` would
+  represent "inherent" capabilities of the App, so for example `A` might be Zed's entity
+  system implementation, `B` might be the windowing API. This would be a generalization
+  in the sense that certain apps could choose to be incredibly lightweight (`App<()>`
+  having no inherent state), or choose some default or custom bundle of inherent capabilities.
+  There might need to be a way for plugins to express compatibility only to apps that satisfy
+  certain inherent capability requirements, something like `impl<A: Inherent<Entities>>`,
+  indicating an app or plugin that is only compatible with apps that have the `Entities`
+  inherent capability. Unfortunately this level of generic wizardry would probably make
+  most of the API surface much more complicated.
+
 # 2026 Jan 28
 
 I want to write down some guiding values and principles for this project, because
