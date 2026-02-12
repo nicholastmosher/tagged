@@ -2,7 +2,6 @@
 
 use std::{fmt::Display, path::PathBuf};
 
-use serde::{Deserialize, Serialize};
 use tracing::warn;
 use zed::unstable::{
     gpui::{
@@ -10,16 +9,14 @@ use zed::unstable::{
     },
     paths,
     ui::{
-        App, Context, IconButton, IconName, IntoElement, ListItem, ParentElement as _, Pixels,
-        Render, SharedString, Styled as _, Window, div, px,
+        App, Context, FluentBuilder, IconButton, IconName, IntoElement, ListItem,
+        ParentElement as _, Pixels, Render, SharedString, Styled as _, Window, div, px,
     },
     workspace::{
         Panel, Workspace,
         dock::{DockPosition, PanelEvent},
     },
 };
-
-use crate::DebugViewExt as _;
 
 actions!(willow, [ToggleWillowPanel]);
 
@@ -46,22 +43,14 @@ pub fn init(cx: &mut App) {
 
 pub struct WillowUi {
     focus_handle: FocusHandle,
-    selected_namespace: Option<Entity<Namespace>>,
     width: Option<Pixels>,
     willow: Willow,
-}
-
-/// Serialized to KEY_VALUE_STORE for persistence
-#[derive(Debug, Serialize, Deserialize)]
-struct WillowUiState {
-    //
 }
 
 impl WillowUi {
     fn new(willow: Willow, cx: &mut Context<Self>) -> Self {
         Self {
             focus_handle: cx.focus_handle(),
-            selected_namespace: None,
             width: None,
             willow,
         }
@@ -69,153 +58,14 @@ impl WillowUi {
 }
 
 impl Render for WillowUi {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
-            .debug_border()
             .h_full()
             .w(self.width.unwrap_or(px(300.)) - px(1.))
             .flex()
             .flex_col()
             // Column-stacked user profiles
-            .child(self.render_users(window, cx))
-    }
-}
-
-/// Subcomponent rendering
-impl WillowUi {
-    fn render_users(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        div()
-            //
-            .children(
-                self.willow
-                    //
-                    .users(cx)
-                    .into_iter()
-                    .map(|user| user),
-            )
-    }
-
-    /// Each user is rendered with a header and a collapsing namespaces section
-    fn render_user(
-        &mut self,
-        user: User,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        div()
-            .debug()
-            .child(self.render_user_header(&user, window, cx))
-            .child(self.render_user_namespaces(&user, window, cx))
-    }
-
-    /// The user header should show a profile icon and user details
-    fn render_user_header(
-        &mut self,
-        user: &User,
-        _window: &mut Window,
-        _cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        div()
-            // Render User header
-            .child(
-                ListItem::new(SharedString::from(format!("user-{}", user.id()))).child(
-                    //
-                    div()
-                        .debug_border()
-                        .p_4()
-                        .flex()
-                        .flex_row()
-                        .child(IconButton::new(
-                            SharedString::from(format!("user-toggle-{}", user.id())),
-                            IconName::ChevronDown,
-                        ))
-                        .child(
-                            //
-                            user.name().to_string(),
-                        ),
-                ),
-            )
-    }
-
-    /// Render the namespaces of a particular user
-    fn render_user_namespaces(
-        &mut self,
-        user: &User,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        div()
-            .debug_border()
-            .flex()
-            .flex_row()
-            // Vertical left, sidebar
-            .child(self.render_namespaces_bar(user, window, cx))
-            // Verticle right, directory
-            .child(self.render_active_namespace(user, window, cx))
-    }
-
-    fn render_user_namespace(
-        &mut self,
-        user: &User,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        div()
-            //
-            .child(
-                //
-                div()
-                    //
-                    .pl_4()
-                    .flex()
-                    .flex_col()
-                    .children(user.namespaces()),
-            )
-    }
-
-    /// Render the namespaces bar for one user.
-    fn render_namespaces_bar(
-        &mut self,
-        user: &User,
-        _window: &mut Window,
-        _cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        div()
-            //
-            .debug_border()
-            .p_2()
-            .flex()
-            .flex_col()
-            .children(user.namespaces().into_iter().map(|namespace| {
-                //
-                ListItem::new(SharedString::from(format!("ns-TODO"))).child(
-                    //
-                    "namespace",
-                )
-            }))
-    }
-
-    /// Render the namespaces bar for one user.
-    fn render_active_namespace(
-        &mut self,
-        user: &User,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        div()
-            .flex()
-            .flex_col()
-            .children(
-                ["One", "Two", "Three"]
-                    .into_iter()
-                    .enumerate()
-                    .map(|(i, name)| {
-                        ListItem::new(SharedString::from(format!("ns-{}-{i}", name))).child(
-                            //
-                            name.to_string(),
-                        )
-                    }),
-            )
+            .children(self.willow.profiles(cx))
     }
 }
 
@@ -293,7 +143,7 @@ pub struct Willow {
 /// State of a Willow instance. Probably 1:1 with a "store" on disk at a given path
 struct WillowState {
     namespaces: Vec<Entity<Namespace>>,
-    users: Vec<Entity<User>>,
+    profiles: Vec<Entity<Profile>>,
 }
 
 impl Willow {
@@ -315,34 +165,67 @@ impl Willow {
         namespace
     }
 
-    fn create_user(&mut self, id: String, name: String, cx: &mut Context<Self>) -> Entity<User> {
-        let user = cx.new(|cx| User::new(id, name, cx));
+    fn create_profile(
+        &mut self,
+        id: String,
+        name: String,
+        cx: &mut Context<Self>,
+    ) -> Entity<Profile> {
+        let profile = cx.new(|cx| Profile::new(id, name, cx));
         self.state.update(cx, |state, _cx| {
-            state.users.push(user.clone());
+            state.profiles.push(profile.clone());
         });
-        user
+        profile
     }
 
     fn namespaces(&self, cx: &mut App) -> impl IntoIterator<Item = Entity<Namespace>> {
         self.state.read(cx).namespaces.clone()
     }
 
-    fn users(&self, cx: &mut App) -> impl IntoIterator<Item = Entity<User>> + use<> {
-        self.state.read(cx).users.clone()
+    fn profiles(&self, cx: &mut App) -> impl IntoIterator<Item = Entity<Profile>> {
+        self.state.read(cx).profiles.clone()
     }
 }
 
 impl WillowState {
     fn new(cx: &mut Context<Self>) -> Self {
+        let namespaces = vec![
+            cx.new(|cx| {
+                let mut namespace = Namespace::new("ns0".to_string(), cx);
+                namespace.create_entry("entry/0".to_string());
+                namespace.create_entry("entry/1".to_string());
+                namespace
+            }),
+            cx.new(|cx| {
+                let mut namespace = Namespace::new("ns1".to_string(), cx);
+                namespace.create_entry("entry/2".to_string());
+                namespace.create_entry("entry/3".to_string());
+                namespace
+            }),
+        ];
+
+        let profiles = vec![
+            cx.new(|cx| {
+                let mut profile = Profile::new("0".to_string(), "Profile 0".to_string(), cx);
+                profile.join_namespace(namespaces[0].clone());
+                profile.join_namespace(namespaces[1].clone());
+                profile
+            }),
+            cx.new(|cx| {
+                let mut profile = Profile::new("1".to_string(), "Profile 1".to_string(), cx);
+                profile.join_namespace(namespaces[0].clone());
+                profile
+            }),
+            cx.new(|cx| {
+                let mut profile = Profile::new("2".to_string(), "Profile 2".to_string(), cx);
+                profile.join_namespace(namespaces[1].clone());
+                profile
+            }),
+        ];
+
         Self {
-            namespaces: vec![
-                cx.new(|cx| Namespace::new("Namespace 0".to_string(), cx)),
-                cx.new(|cx| Namespace::new("Namespace 1".to_string(), cx)),
-            ],
-            users: vec![
-                cx.new(|cx| User::new("0".to_string(), "User 0".to_string(), cx)),
-                cx.new(|cx| User::new("1".to_string(), "User 1".to_string(), cx)),
-            ],
+            namespaces,
+            profiles,
         }
     }
 }
@@ -358,24 +241,134 @@ impl WillowExt for App {
 }
 
 #[derive(Clone)]
-struct User {
+struct Profile {
+    active_namespace: Option<Entity<Namespace>>,
     id: String,
     name: String,
     namespaces: Vec<Entity<Namespace>>,
+    open: bool,
 }
 
-impl Render for User {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+impl Render for Profile {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
+            .debug()
+            .child(self.render_profile_header(window, cx))
+            .when(self.open, |div| {
+                div.child(self.render_profile_namespaces(window, cx))
+            })
     }
 }
 
-impl User {
+impl Profile {
+    /// The user header should show a profile icon and user details
+    fn render_profile_header(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            //
+            .p_2()
+            .child(
+                ListItem::new(SharedString::from(format!("user-{}", self.id())))
+                    .rounded()
+                    .child(
+                        //
+                        div()
+                            .px_2()
+                            .py_4()
+                            .flex()
+                            .flex_row()
+                            .rounded_md()
+                            .child(IconButton::new(
+                                SharedString::from(format!("user-toggle-{}", self.id())),
+                                IconName::ChevronDown,
+                            ))
+                            .child(
+                                //
+                                self.name().to_string(),
+                            ),
+                    )
+                    .on_click(cx.listener(|this, event, window, cx| {
+                        this.open = !this.open;
+                        cx.notify();
+                    })),
+            )
+    }
+
+    /// Render the namespaces of a particular user
+    fn render_profile_namespaces(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            .flex()
+            .flex_row()
+            // Vertical left, sidebar
+            .child(self.render_namespaces_bar(window, cx))
+            // Verticle right, directory
+            .child(self.render_active_namespace(window, cx))
+    }
+
+    /// Render the namespaces bar for one user.
+    fn render_namespaces_bar(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            .debug()
+            .p_2()
+            .flex()
+            .flex_col()
+            .children(self.namespaces().into_iter().map(|namespace| {
+                let ns = namespace.read(cx);
+                ListItem::new(SharedString::from(format!("ns-{}", ns.name())))
+                    .rounded()
+                    .child(
+                        div()
+                            //
+                            .p_2()
+                            .child(
+                                //
+                                ns.name().to_string(),
+                            ),
+                    )
+                    .on_click(cx.listener(move |this, event, window, cx| {
+                        // Clicked a namespace icon, make it active
+                        this.active_namespace = Some(namespace.clone());
+                    }))
+            }))
+    }
+
+    /// Render the namespaces bar for one user.
+    fn render_active_namespace(
+        &mut self,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            //
+            .flex_grow()
+            .p_2()
+            .flex()
+            .flex_col()
+            .when_some(self.active_namespace.as_ref(), |div, namespace| {
+                div.child(namespace.clone())
+            })
+    }
+}
+
+impl Profile {
     fn new(id: String, name: String, _cx: &mut Context<Self>) -> Self {
         Self {
+            active_namespace: None,
             id,
             name,
             namespaces: vec![],
+            open: true,
         }
     }
 
@@ -387,6 +380,10 @@ impl User {
         &self.name
     }
 
+    pub fn join_namespace(&mut self, namespace: Entity<Namespace>) {
+        self.namespaces.push(namespace);
+    }
+
     pub fn namespaces(&self) -> impl IntoIterator<Item = Entity<Namespace>> {
         self.namespaces.clone()
     }
@@ -394,20 +391,41 @@ impl User {
 
 pub struct Namespace {
     name: String,
+    entries: Vec<String>,
 }
 
 impl Render for Namespace {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         div()
+            //
+            .p_2()
+            .children(self.entries().into_iter().map(|entry| {
+                //
+                div()
+                    //
+                    .p_2()
+                    .child(format!("{}/{}", self.name(), entry))
+            }))
     }
 }
 
 impl Namespace {
     fn new(name: impl Into<String>, _cx: &mut Context<Self>) -> Self {
-        Self { name: name.into() }
+        Self {
+            name: name.into(),
+            entries: Default::default(),
+        }
+    }
+
+    pub fn create_entry(&mut self, entry: String) {
+        self.entries.push(entry);
     }
 
     pub fn name(&self) -> impl Display {
         self.name.to_string()
+    }
+
+    pub fn entries(&self) -> impl IntoIterator<Item = &String> {
+        self.entries.iter()
     }
 }
