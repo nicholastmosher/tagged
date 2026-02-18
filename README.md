@@ -154,6 +154,8 @@ Top-down time, UX brainstorming:
   - Tag queries could include:
     - All document between these three peers
 
+- Namespace creation needs to have owned/communal from the start
+
 - Bevy-inspired Asset interface?
 
 - Per-profile "user styling" data object that's like a definition for how your

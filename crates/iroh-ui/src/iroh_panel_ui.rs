@@ -8,7 +8,6 @@ use autosurgeon::reconcile;
 use iroh::endpoint::Connection;
 use iroh::protocol::{AcceptError, ProtocolHandler, Router};
 use iroh::{Endpoint, EndpointAddr};
-use iroh_automerge::IrohAutomergeProtocol;
 use iroh_automerge_repo::IrohRepo;
 use iroh_blobs::store::mem::MemStore;
 use iroh_blobs::{ALPN as BLOBS_ALPN, BlobsProtocol};

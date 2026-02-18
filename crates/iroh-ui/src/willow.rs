@@ -1,18 +1,20 @@
 // Cleaning up ideas from willow_whimsy
 
-use std::{fmt::Display, path::PathBuf};
+use std::{collections::HashMap, fmt::Display, path::PathBuf, rc::Rc};
 
-use tracing::warn;
+use tracing::{info, warn};
 use zed::unstable::{
+    component,
     editor::Editor,
     gpui::{
         self, Action, AppContext, Entity, EventEmitter, FocusHandle, Focusable, Global, actions,
     },
     paths,
     ui::{
-        ActiveTheme as _, App, Context, FluentBuilder, IconButton, IconName, IconSize,
-        InteractiveElement, IntoElement, ListItem, ParentElement as _, Pixels, Render,
-        SharedString, StatefulInteractiveElement as _, Styled as _, Window, div, px,
+        ActiveTheme as _, App, Clickable, Component, Context, ElementId, FluentBuilder, IconButton,
+        IconName, IconSize, InteractiveElement, IntoElement, ListItem, ParentElement as _, Pixels,
+        RegisterComponent, Render, SharedString, StatefulInteractiveElement as _, Styled as _,
+        Window, div, px,
     },
     workspace::{
         Panel, Workspace,
@@ -47,13 +49,23 @@ pub struct WillowUi {
     focus_handle: FocusHandle,
     width: Option<Pixels>,
     willow: Willow,
-    create_profile: Entity<AddItemUi>,
+    create_profile: Entity<ButtonInput>,
 }
 
 impl WillowUi {
     fn new(willow: Willow, cx: &mut Context<Self>) -> Self {
         let create_profile = cx.new(|cx| {
-            AddItemUi::new("+ Profile".into(), cx).placeholder_text("Profile name".into())
+            ButtonInput::new("create-profile-input", "+ Profile".into(), cx)
+                .placeholder_text("Profile name")
+                .on_submit({
+                    |this, text, _window, cx| {
+                        // TODO better IDs
+                        let id = format!("profile-{text}");
+                        cx.willow().create_profile(SharedString::from(id), text, cx);
+                        this.editor.take();
+                        cx.notify();
+                    }
+                })
         });
         Self {
             focus_handle: cx.focus_handle(),
@@ -176,8 +188,13 @@ impl Willow {
         namespace
     }
 
-    fn create_profile(&mut self, name: String, cx: &mut App) -> Entity<Profile> {
-        let profile = cx.new(|cx| Profile::new(name, cx));
+    fn create_profile(
+        &mut self,
+        id: impl Into<ElementId>,
+        name: String,
+        cx: &mut App,
+    ) -> Entity<Profile> {
+        let profile = cx.new(|cx| Profile::new(id.into(), name, cx));
         self.state.update(cx, |state, _cx| {
             state.profiles.push(profile.clone());
         });
@@ -224,7 +241,7 @@ impl WillowState {
 
         let profiles = vec![
             cx.new(|cx| {
-                let mut profile = Profile::new("Profile 0".to_string(), cx);
+                let mut profile = Profile::new("profile-0".into(), "Profile 0".to_string(), cx);
                 profile.join_namespace(namespaces[0].clone());
                 profile.join_namespace(namespaces[1].clone());
                 profile.join_namespace(namespaces[2].clone());
@@ -232,14 +249,14 @@ impl WillowState {
                 profile
             }),
             cx.new(|cx| {
-                let mut profile = Profile::new("Profile 1".to_string(), cx);
+                let mut profile = Profile::new("profile-1".into(), "Profile 1".to_string(), cx);
                 profile.join_namespace(namespaces[0].clone());
                 profile.join_namespace(namespaces[1].clone());
                 profile.active_namespace = Some(namespaces[0].clone());
                 profile
             }),
             cx.new(|cx| {
-                let mut profile = Profile::new("Profile 2".to_string(), cx);
+                let mut profile = Profile::new("profile-2".into(), "Profile 2".to_string(), cx);
                 profile.join_namespace(namespaces[1].clone());
                 profile.join_namespace(namespaces[2].clone());
                 profile.active_namespace = Some(namespaces[1].clone());
@@ -270,7 +287,7 @@ struct Profile {
     active_namespace: Option<Entity<Namespace>>,
     name: String,
     namespaces: Vec<Entity<Namespace>>,
-    create_namespace: Entity<AddItemUi>,
+    create_namespace: Entity<ButtonInput>,
     open: bool,
 }
 
@@ -293,23 +310,32 @@ impl Profile {
     ) -> impl IntoElement {
         div()
             //
+            .border_t_2()
+            .border_color(cx.theme().colors().border.opacity(0.6))
+            .bg(cx.theme().colors().ghost_element_background)
             .child(
                 ListItem::new(SharedString::from(format!("user-{}", self.name())))
                     .child(
-                        //
-                        div()
-                            .px_2()
-                            .py_4()
-                            .flex()
-                            .flex_row()
-                            .child(IconButton::new(
-                                SharedString::from(format!("user-toggle-{}", self.name())),
-                                IconName::ChevronDown,
-                            ))
-                            .child(
-                                //
-                                self.name().to_string(),
-                            ),
+                        div().p_2().child(
+                            div()
+                                .py_2()
+                                .flex()
+                                .flex_row()
+                                .child(IconButton::new(
+                                    SharedString::from(format!("user-toggle-{}", self.name())),
+                                    {
+                                        if self.open {
+                                            IconName::ChevronDown
+                                        } else {
+                                            IconName::ChevronRight
+                                        }
+                                    },
+                                ))
+                                .child(
+                                    //
+                                    self.name().to_string(),
+                                ),
+                        ),
                     )
                     .on_click(cx.listener(|this, _event, _window, cx| {
                         this.open = !this.open;
@@ -336,7 +362,20 @@ impl Profile {
                     // Verticle right, directory
                     .child(self.render_active_namespace(window, cx)),
             )
-            .child(self.create_namespace.clone())
+            // When creating namespace, render ItemAdd widget
+            .when(self.create_namespace.read(cx).editor.is_some(), |this| {
+                //
+                this.child(
+                    div()
+                        //
+                        .px_2()
+                        .pb_2()
+                        .child(
+                            //
+                            self.create_namespace.clone(),
+                        ),
+                )
+            })
     }
 
     /// Render the namespaces bar for one user.
@@ -350,6 +389,9 @@ impl Profile {
             .flex()
             .flex_col()
             .gap_2()
+            .border_r_1()
+            .border_color(cx.theme().colors().border.opacity(0.6))
+            // Each namespace in this profile
             .children(self.namespaces().into_iter().map(|namespace| {
                 let ns = namespace.read(cx);
                 div()
@@ -372,6 +414,49 @@ impl Profile {
                         ns.name().to_string(),
                     )
             }))
+            // Push the add-namespace button to the bottom
+            .child(div().flex_grow())
+            // New namespace + Icon button, only when not actively adding
+            .when_none(&self.create_namespace.read(cx).editor, |this| {
+                //
+                this.child(
+                    div()
+                        //
+                        .id("create-namespace-mini")
+                        .p_4()
+                        .border_1()
+                        .rounded_lg()
+                        .justify_center()
+                        .border_color(cx.theme().colors().border.opacity(0.6))
+                        .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                        .hover(|style| {
+                            style
+                                .bg(cx.theme().colors().ghost_element_hover)
+                                .border_color(cx.theme().colors().border.opacity(1.0))
+                        })
+                        .child(
+                            IconButton::new("create-namespace-mini-icon", IconName::Plus).on_click(
+                                cx.listener(|this, _event, window, cx| {
+                                    info!("Clicked Create Namespace");
+                                    this.create_namespace.update(cx, |this, cx| {
+                                        this.editor = Some(cx.new(|cx| {
+                                            let mut editor = Editor::single_line(window, cx);
+                                            if let Some(placeholder) = &this.placeholder {
+                                                editor.set_placeholder_text(
+                                                    &**placeholder,
+                                                    window,
+                                                    cx,
+                                                );
+                                            }
+                                            editor
+                                        }));
+                                        cx.notify();
+                                    });
+                                }),
+                            ),
+                        ),
+                )
+            })
     }
 
     /// Render the namespaces bar for one user.
@@ -393,9 +478,20 @@ impl Profile {
 }
 
 impl Profile {
-    fn new(name: String, cx: &mut Context<Self>) -> Self {
+    fn new(id: ElementId, name: String, cx: &mut Context<Self>) -> Self {
         let create_namespace = cx.new(|cx| {
-            AddItemUi::new("+ Namespace".into(), cx).placeholder_text("Create namespace".into())
+            ButtonInput::new(
+                SharedString::from(format!("{id}-create-namespace")),
+                "+ Namespace".into(),
+                cx,
+            )
+            .placeholder_text("Create namespace")
+            .on_submit({
+                let id = id.clone();
+                move |_this, _text, _window, _cx| {
+                    info!("Submitted create namespace {id}");
+                }
+            })
         });
         Self {
             active_namespace: None,
@@ -464,33 +560,59 @@ impl Namespace {
     }
 }
 
-struct AddItemUi {
+#[derive(RegisterComponent)]
+struct ButtonInput {
+    id: ElementId,
     name: SharedString,
     placeholder: Option<SharedString>,
     editor: Option<Entity<Editor>>,
+    on_submit: Option<Rc<dyn Fn(&mut Self, String, &mut Window, &mut Context<Self>)>>,
 }
 
-impl AddItemUi {
-    pub fn new(name: SharedString, _cx: &mut Context<Self>) -> Self {
+impl Component for ButtonInput {
+    fn preview(_window: &mut Window, cx: &mut App) -> Option<gpui::AnyElement> {
+        let ui = cx.new(|cx| {
+            Self::new("sample", "Sample".into(), cx)
+                .placeholder_text("Input here")
+                .on_submit(|_this, _text, _window, _cx| {
+                    info!("Sample OnClick");
+                })
+        });
+        let container = div().p_2().child(ui);
+        Some(container.into_any_element())
+    }
+}
+
+impl ButtonInput {
+    pub fn new(id: impl Into<ElementId>, name: SharedString, _cx: &mut Context<Self>) -> Self {
         Self {
-            //
+            id: id.into(),
             name,
             placeholder: None,
             editor: None,
+            on_submit: None,
         }
     }
 
-    pub fn placeholder_text(mut self, text: SharedString) -> Self {
-        self.placeholder = Some(text);
+    pub fn placeholder_text(mut self, text: impl Into<SharedString>) -> Self {
+        self.placeholder = Some(text.into());
+        self
+    }
+
+    pub fn on_submit(
+        mut self,
+        on_submit: impl Fn(&mut Self, String, &mut Window, &mut Context<Self>) + 'static,
+    ) -> Self {
+        self.on_submit = Some(Rc::new(on_submit));
         self
     }
 }
 
-impl Render for AddItemUi {
+impl Render for ButtonInput {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             //
-            .id("add-item-ui")
+            .id(self.id.clone())
             .text_center()
             .justify_center()
             .border_2()
@@ -546,13 +668,22 @@ impl Render for AddItemUi {
                         //
                         div()
                             //
-                            .id("create-profile-cancel")
+                            .id(SharedString::from(format!(
+                                "{}-create-profile-cancel",
+                                self.id
+                            )))
                             .p_4()
                             .active(|style| style.bg(cx.theme().colors().ghost_element_active))
                             .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
                             .child(
-                                IconButton::new("cancel", IconName::XCircle)
-                                    .icon_size(IconSize::Medium),
+                                IconButton::new(
+                                    SharedString::from(format!(
+                                        "{}-create-profile-cancel-icon",
+                                        self.id
+                                    )),
+                                    IconName::XCircle,
+                                )
+                                .icon_size(IconSize::Medium),
                             )
                             .on_click(cx.listener(|this, _event, _window, _cx| {
                                 this.editor.take();
@@ -570,18 +701,28 @@ impl Render for AddItemUi {
                         //
                         div()
                             //
-                            .id("create-profile-submit")
+                            // .id("create-profile-submit")
+                            .id(SharedString::from(format!(
+                                "{}-create-profile-submit",
+                                self.id
+                            )))
                             .p_4()
                             .active(|style| style.bg(cx.theme().colors().ghost_element_active))
                             .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
-                            .child(IconButton::new("submit", IconName::ChevronRight))
+                            .child(IconButton::new(
+                                SharedString::from(format!(
+                                    "{}-create-profile-submit-icon",
+                                    self.id
+                                )),
+                                IconName::ChevronRight,
+                            ))
                             .on_click(cx.listener({
                                 let editor = editor.clone();
-                                move |this, _event, _window, cx| {
+                                move |this, _event, window, cx| {
                                     let name = editor.read(cx).text(cx);
-                                    cx.willow().create_profile(name, cx);
-                                    this.editor.take();
-                                    cx.notify();
+                                    if let Some(on_submit) = this.on_submit.clone() {
+                                        (on_submit)(this, name, window, cx)
+                                    }
                                 }
                             })),
                     )
