@@ -10,6 +10,6 @@ async fn main() {
         .init();
     Application::new()
         .add_plugins(zed::init)
-        .add_plugins(iroh_ui::init)
+        .add_plugins(tagged::init)
         .run();
 }
