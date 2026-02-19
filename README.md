@@ -10,6 +10,10 @@
 - Thinking of using `.home/` as the convention for meta files, for a
   directory, or maybe `.here/`? so e.g. `.home/schemas/chat.schema.json`,
   or `.here/capabilities/chat.json`
+  
+  > slightly later me: I do quite like `.here/`
+
+- I want to consider UI implications of read/write/pull
 
 # 2026 Feb 17
 

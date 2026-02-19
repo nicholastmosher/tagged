@@ -1,6 +1,6 @@
 // Cleaning up ideas from willow_whimsy
 
-use std::{collections::HashMap, fmt::Display, path::PathBuf, rc::Rc};
+use std::{collections::HashMap, fmt::Display, marker::PhantomData, path::PathBuf, rc::Rc};
 
 use tracing::{info, warn};
 use zed::unstable::{
@@ -210,6 +210,31 @@ impl Willow {
     fn profiles(&self, cx: &mut App) -> impl IntoIterator<Item = Entity<Profile>> {
         self.state.read(cx).profiles.clone()
     }
+
+    /// ```rust,no-run
+    /// #[derive(Debug, WillowObject)]
+    /// struct ChatBubble {
+    ///     #[willow(path = "content/")]
+    ///     content: ChatContent,
+    ///     #[willow(path = "sender.txt")]
+    ///     sender: Profile,
+    ///     #[willow(path = "signature.txt")]
+    ///     signature: (),
+    /// }
+    /// let chat_feed: WillowFeed<ChatBubble> = cx.willow()
+    ///     //
+    ///     .create_feed::<ChatBubble>("/apps/chat/feeds/family/");
+    /// ```
+    ///
+    /// Gotta find a better name than "object index"
+    ///
+    /// - It's just a folder that holds some kinds of objects
+    /// - Like, "put my Chat" objects in "/apps/chat/feeds/family/"
+    /// - Oh yeah, call it a feed?
+    pub fn create_feed<T>(&self, path: &str) -> WillowFeed<T> {
+        //
+        todo!()
+    }
 }
 
 impl WillowState {
@@ -275,7 +300,7 @@ impl WillowState {
     }
 }
 
-trait WillowExt {
+pub trait WillowExt {
     fn willow(&mut self) -> Willow;
 }
 
@@ -284,6 +309,20 @@ impl WillowExt for App {
         self.global::<GlobalWillow>().0.clone()
     }
 }
+
+pub struct WillowObject<T> {
+    _phantom: PhantomData<T>,
+}
+
+pub struct WillowFeed<T> {
+    _phantom: PhantomData<T>,
+}
+
+// trait FeedLike<T> {}
+// impl FeedLike<()> for () {}
+
+// struct ChatFeed {}
+// impl FeedLike<ChatFeed> for ChatFeed {}
 
 #[derive(Clone)]
 struct Profile {
