@@ -4,13 +4,57 @@ use tracing::info;
 use zed::unstable::{
     gpui::{AppContext as _, Entity},
     ui::{
-        ActiveTheme as _, Context, ElementId, FluentBuilder as _, IconButton, IconName,
+        ActiveTheme as _, App, Context, ElementId, FluentBuilder as _, IconButton, IconName,
         InteractiveElement, IntoElement, ListItem, ParentElement as _, Render, SharedString,
         StatefulInteractiveElement as _, Styled as _, Window, div,
     },
+    workspace::Workspace,
 };
 
-use crate::willow::{ButtonInput, WillowExt as _, button_input::render_icon_button, space::Space};
+use crate::willow::{
+    ButtonInput, Willow, WillowExt as _,
+    button_input::render_icon_button,
+    space::{Space, SpaceExt as _},
+};
+
+pub trait ProfileExt {
+    //
+    fn create_profile(
+        &self,
+        id: impl Into<ElementId>,
+        name: String,
+        workspace: Entity<Workspace>,
+        cx: &mut App,
+    ) -> Entity<Profile>;
+    fn profiles(&self, cx: &mut App) -> Vec<Entity<Profile>>;
+}
+
+impl ProfileExt for Willow {
+    fn create_profile(
+        &self,
+        id: impl Into<ElementId>,
+        name: String,
+        workspace: Entity<Workspace>,
+        cx: &mut App,
+    ) -> Entity<Profile> {
+        let profile = cx.new(|cx| {
+            Profile::new(
+                SharedString::from(format!("profile-{}", id.into())).into(),
+                name,
+                workspace,
+                cx,
+            )
+        });
+        self.state.update(cx, |state, _cx| {
+            state.profiles.push(profile.clone());
+        });
+        profile
+    }
+
+    fn profiles(&self, cx: &mut App) -> Vec<Entity<Profile>> {
+        self.state.read(cx).profiles.clone()
+    }
+}
 
 #[derive(Clone)]
 #[non_exhaustive]
@@ -20,25 +64,39 @@ pub struct Profile {
     pub spaces: Vec<Entity<Space>>,
     pub create_space: Entity<ButtonInput>,
     pub open: bool,
+    pub workspace: Entity<Workspace>,
 }
 
 impl Profile {
-    pub fn new(id: ElementId, name: String, cx: &mut Context<Self>) -> Self {
-        let create_namespace = cx.new(|cx| {
-            ButtonInput::new(
-                SharedString::from(format!("{id}-create-namespace")),
-                "+ Namespace".into(),
-                cx,
-            )
-            .placeholder_text("Create namespace")
-            .on_submit({
-                move |this, text, _window, cx| {
-                    info!("Submitted create namespace '{text}'");
-                    let _space = cx.willow().create_space(text, cx);
-                    this.clear();
-                    cx.notify();
-                }
-            })
+    pub fn new(
+        id: ElementId,
+        name: String,
+        workspace: Entity<Workspace>,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        let this_profile = cx.entity();
+        let create_namespace = cx.new({
+            let workspace = workspace.clone();
+            |cx| {
+                ButtonInput::new(
+                    SharedString::from(format!("{id}-create-namespace")),
+                    "+ Namespace".into(),
+                    cx,
+                )
+                .placeholder_text("Create namespace")
+                .on_submit({
+                    move |this, text, _window, cx| {
+                        info!("Submitted create namespace '{text}'");
+                        let space = cx.willow().create_space(text, workspace.clone(), cx);
+                        this_profile.update(cx, |profile, _cx| {
+                            //
+                            profile.join_space(space);
+                        });
+                        this.clear();
+                        cx.notify();
+                    }
+                })
+            }
         });
 
         Self {
@@ -47,6 +105,7 @@ impl Profile {
             spaces: Default::default(),
             create_space: create_namespace,
             open: true,
+            workspace,
         }
     }
 
@@ -123,6 +182,7 @@ impl Profile {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         div()
+            .w_full()
             .flex()
             .flex_col()
             .child(
@@ -189,8 +249,8 @@ impl Profile {
                         ns.name().to_string(),
                     )
             }))
-            // Push the add-namespace button to the bottom
-            .child(div().flex_grow())
+            // // Push the add-namespace button to the bottom
+            // .child(div().debug().flex_grow())
             // New namespace + Icon button, only when not actively adding
             .when(self.create_space.read(cx).is_button(), |this| {
                 //
@@ -198,9 +258,10 @@ impl Profile {
                     div()
                         //
                         .id("create-namespace-mini")
+                        .flex_initial()
                         .flex()
                         .flex_row()
-                        .text_center()
+                        // .text_center()
                         .justify_center()
                         .border_2()
                         .border_dashed()
@@ -232,12 +293,13 @@ impl Profile {
     ) -> impl IntoElement {
         div()
             //
-            .flex_grow()
+            .debug()
             .p_2()
+            // .flex_grow()
             .flex()
             .flex_col()
-            .when_some(self.active_space.as_ref(), |div, namespace| {
-                div.child(namespace.clone())
+            .when_some(self.active_space.as_ref(), |div, space| {
+                div.child(space.clone())
             })
     }
 }

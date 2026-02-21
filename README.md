@@ -1,5 +1,37 @@
 # Project
 
+# 2026 Feb 21
+
+- Term idea: Create a "lens" of a particular object type at a directory
+- The lens sticks around like an object and lets you view that directory
+  as that object quickly. Imagine the lens being tagged or pinned.
+
+---
+
+- More chat work
+- Need interaction path from Profile > Namespace to > Create chat and then
+  to open ChatUi item
+  - Let's hardcode it for now and return later to generalize
+
+```rust
+/// Project from the Zed:Entity space to another space (like Willow Objects)
+impl SomeExt for Entity<T> {
+    type Handle<T> = ()
+    fn to_other_handle<T>(&self) -> Self::Handle<T> {
+        // pass the entity to the new handle type
+        Handle::new(self.clone())
+    }
+}
+```
+
+```rust
+// Zed already has:
+pub trait ItemHandle: 'static + Send {
+    // things in here can be domain-specific behavior as long
+    // as it can be accomplished via an `Entity<Self>`
+}
+```
+
 # 2026 Feb 19
 
 Todo

@@ -9,8 +9,8 @@ use zed::unstable::{
     },
     paths,
     ui::{
-        App, Context, ElementId, IconName, IntoElement, ParentElement as _, Pixels, Render,
-        SharedString, Styled as _, Window, div, px,
+        App, Context, IconName, IntoElement, ParentElement as _, Pixels, Render, SharedString,
+        Styled as _, Window, div, px,
     },
     workspace::{
         Panel, Workspace,
@@ -18,7 +18,11 @@ use zed::unstable::{
     },
 };
 
-use crate::willow::{button_input::ButtonInput, profile::Profile, space::Space};
+use crate::willow::{
+    button_input::ButtonInput,
+    profile::{Profile, ProfileExt as _},
+    space::Space,
+};
 
 pub mod button_input;
 pub mod object_widget;
@@ -38,7 +42,7 @@ pub fn init(cx: &mut App) {
         let workspace_entity = cx.entity();
 
         let store_path = paths::data_dir();
-        let willow = Willow::new(store_path, cx);
+        let willow = Willow::new(store_path, workspace_entity.clone(), cx);
         cx.set_global(GlobalWillow(willow));
         let willow_ui = cx.new(|cx| WillowUi::new(cx.willow(), workspace_entity.clone(), cx));
 
@@ -62,18 +66,27 @@ pub struct WillowUi {
 
 impl WillowUi {
     fn new(willow: Willow, workspace: Entity<Workspace>, cx: &mut Context<Self>) -> Self {
-        let create_profile = cx.new(|cx| {
-            ButtonInput::new("create-profile-input", "+ Profile".into(), cx)
-                .placeholder_text("Profile name")
-                .on_submit({
-                    |this, text, _window, cx| {
-                        // TODO better IDs
-                        let id = format!("profile-{text}");
-                        cx.willow().create_profile(SharedString::from(id), text, cx);
-                        this.clear();
-                        cx.notify();
-                    }
-                })
+        let create_profile = cx.new({
+            let workspace = workspace.clone();
+            move |cx| {
+                ButtonInput::new("create-profile-input", "+ Profile".into(), cx)
+                    .placeholder_text("Profile name")
+                    .on_submit({
+                        // let workspace = workspace.clone();
+                        move |this, text, _window, cx| {
+                            // TODO better IDs
+                            let id = format!("profile-{text}");
+                            cx.willow().create_profile(
+                                SharedString::from(id),
+                                text,
+                                workspace.clone(),
+                                cx,
+                            );
+                            this.clear();
+                            cx.notify();
+                        }
+                    })
+            }
         });
 
         Self {
@@ -177,52 +190,55 @@ pub struct Willow {
 
 /// State of a Willow instance. Probably 1:1 with a "store" on disk at a given path
 struct WillowState {
+    // TODO: Generalization of this, esp with Willow Ext traits
     spaces: Vec<Entity<Space>>,
+
     store_path: PathBuf,
     /// Payloads in simple impl are just bytes
     paths: HashMap<String, Vec<u8>>,
     profiles: Vec<Entity<Profile>>,
+    workspace: Entity<Workspace>,
 }
 
 impl Willow {
-    fn new(store_path: impl Into<PathBuf>, cx: &mut App) -> Self {
-        let state = cx.new(|cx| WillowState::new(store_path.into(), cx));
+    fn new(store_path: impl Into<PathBuf>, workspace: Entity<Workspace>, cx: &mut App) -> Self {
+        let state = cx.new(|cx| WillowState::new(store_path.into(), workspace, cx));
         let willow = Self { state };
-
         willow
     }
 
-    /// Returns None if no workspace is available
-    ///
-    /// Otherwise, creates a new Space as a workspace item
-    fn create_space(&mut self, name: String, cx: &mut App) -> Option<Entity<Space>> {
-        self.state.update(cx, |state, cx| {
-            let space = cx.new(|cx| Space::new(name, cx));
-            state.spaces.push(space.clone());
-            Some(space)
-        })
-    }
+    // /// Returns None if no workspace is available
+    // ///
+    // /// Otherwise, creates a new Space as a workspace item
+    // fn create_space(&mut self, name: String, cx: &mut App) -> Option<Entity<Space>> {
+    //     self.state.update(cx, |state, cx| {
+    //         let space = cx.new(|cx| Space::new(name, cx));
+    //         state.spaces.push(space.clone());
+    //         Some(space)
+    //     })
+    // }
 
-    fn create_profile(
-        &mut self,
-        id: impl Into<ElementId>,
-        name: String,
-        cx: &mut App,
-    ) -> Entity<Profile> {
-        let profile = cx.new(|cx| Profile::new(id.into(), name, cx));
-        self.state.update(cx, |state, _cx| {
-            state.profiles.push(profile.clone());
-        });
-        profile
-    }
+    // fn create_profile(
+    //     &mut self,
+    //     id: impl Into<ElementId>,
+    //     name: String,
+    //     workspace: Entity<Workspace>,
+    //     cx: &mut App,
+    // ) -> Entity<Profile> {
+    //     let profile = cx.new(|cx| Profile::new(id.into(), name, workspace, cx));
+    //     self.state.update(cx, |state, _cx| {
+    //         state.profiles.push(profile.clone());
+    //     });
+    //     profile
+    // }
 
-    fn spaces(&self, cx: &mut App) -> impl IntoIterator<Item = Entity<Space>> {
-        self.state.read(cx).spaces.clone()
-    }
+    // fn spaces(&self, cx: &mut App) -> impl IntoIterator<Item = Entity<Space>> {
+    //     self.state.read(cx).spaces.clone()
+    // }
 
-    fn profiles(&self, cx: &mut App) -> impl IntoIterator<Item = Entity<Profile>> {
-        self.state.read(cx).profiles.clone()
-    }
+    // fn profiles(&self, cx: &mut App) -> impl IntoIterator<Item = Entity<Profile>> {
+    //     self.state.read(cx).profiles.clone()
+    // }
 
     /// ```rust,no-run
     /// #[derive(Debug, WillowObject)]
@@ -251,28 +267,38 @@ impl Willow {
 }
 
 impl WillowState {
-    fn new(store_path: PathBuf, cx: &mut Context<Self>) -> Self {
+    fn new(store_path: PathBuf, workspace: Entity<Workspace>, cx: &mut Context<Self>) -> Self {
         let spaces = vec![
             cx.new(|cx| {
-                let mut space = Space::new("Home".to_string(), cx);
+                let mut space = Space::new("Home".to_string(), workspace.clone(), cx);
                 space
             }),
             cx.new(|cx| {
-                let mut space = Space::new("Family".to_string(), cx);
+                let mut space = Space::new("Family".to_string(), workspace.clone(), cx);
                 space
             }),
         ];
 
         let profiles = vec![
             cx.new(|cx| {
-                let mut profile = Profile::new("profile-0".into(), "Profile 0".to_string(), cx);
+                let mut profile = Profile::new(
+                    "profile-0".into(),
+                    "Profile 0".to_string(),
+                    workspace.clone(),
+                    cx,
+                );
                 profile.join_space(spaces[0].clone());
                 profile.join_space(spaces[1].clone());
                 profile.active_space = Some(spaces[0].clone());
                 profile
             }),
             cx.new(|cx| {
-                let mut profile = Profile::new("profile-1".into(), "Profile 1".to_string(), cx);
+                let mut profile = Profile::new(
+                    "profile-1".into(),
+                    "Profile 1".to_string(),
+                    workspace.clone(),
+                    cx,
+                );
                 profile.join_space(spaces[0].clone());
                 profile.active_space = Some(spaces[0].clone());
                 profile
@@ -284,6 +310,7 @@ impl WillowState {
             store_path,
             paths: Default::default(),
             profiles,
+            workspace,
         }
     }
 }

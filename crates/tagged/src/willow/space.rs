@@ -25,17 +25,48 @@
 
 use std::fmt::Display;
 
-use tracing::warn;
+use tracing::info;
 use zed::unstable::{
     gpui::{AppContext as _, Entity, EventEmitter, FocusHandle, Focusable},
     ui::{
-        App, Context, IntoElement, ListItem, ParentElement as _, Render, SharedString, Styled as _,
-        Window, div,
+        ActiveTheme as _, App, Context, InteractiveElement as _, IntoElement, ParentElement as _,
+        Render, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
     },
     workspace::{Item, Workspace},
 };
 
-use crate::{chat::ChatUi, willow::button_input::ButtonInput};
+use crate::{
+    chat::ChatUi,
+    willow::{Willow, button_input::ButtonInput},
+};
+
+pub trait SpaceExt {
+    fn create_space(
+        &self,
+        name: String,
+        workspace: Entity<Workspace>,
+        cx: &mut App,
+    ) -> Entity<Space>;
+    fn spaces(&self, cx: &mut App) -> Vec<Entity<Space>>;
+}
+
+impl SpaceExt for Willow {
+    fn create_space(
+        &self,
+        name: String,
+        workspace: Entity<Workspace>,
+        cx: &mut App,
+    ) -> Entity<Space> {
+        self.state.update(cx, |state, cx| {
+            let space = cx.new(|cx| Space::new(name, workspace, cx));
+            state.spaces.push(space.clone());
+            space
+        })
+    }
+    fn spaces(&self, cx: &mut App) -> Vec<Entity<Space>> {
+        self.state.read(cx).spaces.clone()
+    }
+}
 
 pub struct Space {
     chats: Vec<Entity<ChatUi>>,
@@ -50,6 +81,8 @@ pub struct Space {
     entries: Vec<Entity<Entry>>,
 
     focus_handle: FocusHandle,
+
+    workspace: Entity<Workspace>,
 }
 
 #[derive(Debug)]
@@ -57,7 +90,7 @@ pub struct Entry {
     content: String,
 }
 impl Entry {
-    fn new(content: impl Into<String>, cx: &mut Context<Self>) -> Self {
+    fn new(content: impl Into<String>, _cx: &mut Context<Self>) -> Self {
         Self {
             //
             content: content.into(),
@@ -67,20 +100,30 @@ impl Entry {
 
 impl Render for Space {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let active_color = cx.theme().colors().ghost_element_active;
+        let hover_bg_color = cx.theme().colors().ghost_element_hover;
+        let hover_border_color = cx.theme().colors().border.opacity(1.0);
         div()
             //
+            // TODO fix ID
+            .id(SharedString::from(format!("entry-{}", self.name)))
+            .p_2()
             .debug()
             .flex()
             .flex_col()
+            .child(format!("Space div.child(): '{}'", self.name))
             .children(self.entries(cx).into_iter().enumerate().map(|(i, entry)| {
-                //
-                ListItem::new(SharedString::from(format!("ns-entry-{i}")))
-                    .rounded()
+                div()
+                    //
+                    .id(SharedString::from(format!("entry-{}-{i}", self.name)))
+                    .p_2()
+                    .active(|style| style.bg(active_color))
+                    .hover(|style| style.bg(hover_bg_color).border_color(hover_border_color))
+                    .rounded_md()
                     .child(
                         //
                         div()
                             //
-                            .p_2()
                             .child(format!("{}/{:?}", self.name(), entry)),
                     )
             }))
@@ -92,9 +135,13 @@ impl Render for Space {
 }
 
 impl Space {
-    pub fn new(name: impl Into<String>, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        workspace: Entity<Workspace>,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let name = name.into();
-        let weak_space = cx.weak_entity();
+        let space = cx.entity();
         let create_chat = cx.new(|cx| {
             ButtonInput::new(
                 SharedString::from(format!("create-chat-{name}")),
@@ -102,26 +149,14 @@ impl Space {
                 cx,
             )
             .on_submit(move |this, text, _window, cx| {
-                let Some(space) = weak_space.upgrade() else {
-                    warn!("Weak space");
-                    return;
-                };
+                info!("Submitted +Chat");
 
-                // let chat_ui = cx.new(|cx| ChatUi::new(text, cx));
-                // space.update(cx, |space, _cx| {
-                //     space.chats.push(chat_ui);
-                // });
+                space.update(cx, |space, cx| {
+                    // .. need workspace, or somehow create
 
-                // let workspace = workspace.clone();
-                // workspace.update(cx, |workspace, cx| {
-                //     workspace.add_item_to_active_pane(
-                //         Box::new(chat_ui),
-                //         Some(0),
-                //         false,
-                //         window,
-                //         cx,
-                //     );
-                // });
+                    let chat = cx.new(|cx| ChatUi::new(text, cx));
+                    space.chats.push(chat.clone());
+                });
 
                 this.clear();
                 cx.notify();
@@ -135,6 +170,7 @@ impl Space {
             // entries: Default::default(),
             entries: vec![cx.new(|cx| Entry::new("apps/chat/{id}/", cx))],
             focus_handle: cx.focus_handle(),
+            workspace,
         }
     }
 

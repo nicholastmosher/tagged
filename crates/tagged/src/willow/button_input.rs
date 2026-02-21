@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use tracing::info;
+use tracing::{debug, info, warn};
 use zed::unstable::{
     component,
     editor::Editor,
@@ -19,7 +19,8 @@ pub struct ButtonInput {
     name: SharedString,
     placeholder: Option<SharedString>,
     editor: Option<Entity<Editor>>,
-    on_submit: Option<Rc<dyn Fn(&mut Self, String, &mut Window, &mut Context<Self>)>>,
+    // on_submit: Option<Rc<dyn Fn(&mut Self, String, &mut Window, &mut Context<Self>)>>,
+    on_submit: Vec<Rc<dyn Fn(&mut Self, String, &mut Window, &mut Context<Self>)>>,
 }
 
 impl ButtonInput {
@@ -29,7 +30,7 @@ impl ButtonInput {
             name,
             placeholder: None,
             editor: None,
-            on_submit: None,
+            on_submit: Default::default(),
         }
     }
 
@@ -38,11 +39,27 @@ impl ButtonInput {
         self
     }
 
+    /// Add a new submit handler for this button.
+    ///
+    /// All added handlers will be called when the button is pressed.
     pub fn on_submit(
         mut self,
         on_submit: impl Fn(&mut Self, String, &mut Window, &mut Context<Self>) + 'static,
     ) -> Self {
-        self.on_submit = Some(Rc::new(on_submit));
+        // self.on_submit = Some(Rc::new(move |this, text, window, cx| {
+        //     //
+        //     on_submit(this, text, window, cx)
+        // }));
+        self.on_submit.push(Rc::new(move |this, text, window, cx| {
+            // Wrap all handlers with these prechecks:
+            let button = &this.name;
+            if text.is_empty() {
+                warn!(%button, "Empty text, noop");
+                return;
+            }
+
+            (on_submit)(this, text, window, cx)
+        }));
         self
     }
 
@@ -86,7 +103,10 @@ impl Render for ButtonInput {
             .border_color(cx.theme().colors().border.opacity(0.6))
             .rounded_sm()
             // button side
-            .when_none(&self.editor, |this| this.child(button_side))
+            .when_none(&self.editor, |this| {
+                //
+                this.child(button_side)
+            })
             // input side
             .when_some(self.editor.as_ref(), |this, _editor| {
                 //
@@ -176,33 +196,25 @@ impl ButtonInput {
                     .on_click(cx.listener({
                         let editor = editor.clone();
                         move |this, _event, window, cx| {
-                            let name = editor.read(cx).text(cx);
-                            if let Some(on_submit) = this.on_submit.clone() {
-                                (on_submit)(this, name, window, cx)
+                            let text = editor.read(cx).text(cx);
+                            if text.is_empty() {
+                                warn!("Empty input, noop");
+                                return;
+                            };
+                            debug!(%text, "ButtonInput click");
+                            // if let Some(on_submit) = this.on_submit.clone() {
+                            //     info!(%text, "ButtonInput submit");
+                            //     (on_submit)(this, text, window, cx)
+                            // }
+                            for on_submit in this.on_submit.clone() {
+                                //
+                                info!(%text, "ButtonInput submit");
+                                (on_submit)(this, text.clone(), window, cx)
                             }
                         }
                     })),
             )
     }
-
-    // fn render_icon_button(
-    //     &mut self,
-    //     id: impl std::fmt::Display,
-    //     icon: IconName,
-    //     _window: &mut Window,
-    //     cx: &mut Context<Self>,
-    // ) -> Stateful<Div> {
-    //     div()
-    //         // Id namespaced by the component id, followed by the passed `id` as a suffix
-    //         .id(SharedString::from(format!("{}/{id}", self.id)))
-    //         .p_4()
-    //         .active(|style| style.bg(cx.theme().colors().ghost_element_active))
-    //         .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
-    //         .child(
-    //             IconButton::new(SharedString::from(format!("{}/{id}-icon", self.id)), icon)
-    //                 .icon_size(IconSize::Custom(Rems(1.5))),
-    //         )
-    // }
 }
 
 pub fn render_icon_button<T>(
