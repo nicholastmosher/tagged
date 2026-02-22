@@ -154,7 +154,7 @@ impl Space {
                     info!("Submitted +Chat");
 
                     space.update(cx, |space, cx| {
-                        let chat = cx.new(|cx| ChatUi::new(text, cx));
+                        let chat = cx.new(|cx| ChatUi::new(text, window, cx));
                         workspace.update(cx, |workspace, cx| {
                             //
                             space.chats.push(chat.clone());

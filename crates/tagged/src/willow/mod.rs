@@ -48,6 +48,9 @@ pub fn init(cx: &mut App) {
 
         workspace.add_panel(willow_ui.clone(), window, cx);
         workspace.toggle_panel_focus::<WillowUi>(window, cx);
+        workspace.register_action(|this, _: &ToggleWillowPanel, window, cx| {
+            this.toggle_panel_focus::<WillowUi>(window, cx);
+        });
     })
     .detach();
 }
