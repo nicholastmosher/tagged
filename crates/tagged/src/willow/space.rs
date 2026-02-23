@@ -104,14 +104,14 @@ impl Render for Space {
         let hover_bg_color = cx.theme().colors().ghost_element_hover;
         let hover_border_color = cx.theme().colors().border.opacity(1.0);
         div()
+            .debug()
             //
             // TODO fix ID
             .id(SharedString::from(format!("entry-{}", self.name)))
             .p_2()
-            .debug()
+            .gap_2()
             .flex()
             .flex_col()
-            .child(format!("Space div.child(): '{}'", self.name))
             .children(self.entries(cx).into_iter().enumerate().map(|(i, entry)| {
                 div()
                     //
@@ -119,11 +119,12 @@ impl Render for Space {
                     .p_2()
                     .active(|style| style.bg(active_color))
                     .hover(|style| style.bg(hover_bg_color).border_color(hover_border_color))
-                    .rounded_md()
                     .child(
                         //
                         div()
                             //
+                            .text_ellipsis()
+                            .truncate()
                             .child(format!("{}/{:?}", self.name(), entry)),
                     )
             }))

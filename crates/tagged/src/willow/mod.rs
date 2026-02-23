@@ -105,6 +105,7 @@ impl WillowUi {
 impl Render for WillowUi {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
+            .debug()
             .h_full()
             .w(self.width.unwrap_or(px(300.)) - px(1.))
             .flex()

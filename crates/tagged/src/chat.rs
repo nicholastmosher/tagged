@@ -1,3 +1,4 @@
+use serde_json::json;
 /// ChatUi is a `Workspace` item, rendering into the tab window
 use zed::unstable::{
     editor::Editor,
@@ -8,6 +9,8 @@ use zed::unstable::{
     },
     workspace::Item,
 };
+
+use crate::willow::object_widget::ObjectWidget;
 
 pub struct Feed<T> {
     //
@@ -96,7 +99,32 @@ impl ChatUi {
 }
 
 impl Render for ChatUi {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let object_widget = cx.new(|cx| {
+            ObjectWidget::new(
+                json!({
+                    //
+                    "OneKey": "OneValue",
+                    // "One": {
+                    //     "One.One": "11",
+                        // "One.Two": [
+                        //     "One.Two.One",
+                        //     "One.Two.Two",
+                        //     "One.Two.Three",
+                        // ]
+                    // },
+                    // "Two": 2,
+                    // "Three": 3,
+                    // "Four": {
+                    //     "FourOne": "41",
+                    //     "FourTwo": "42",
+                    //     "FourThree": null,
+                    // }
+                }),
+                cx,
+            )
+        });
+
         div()
             //
             .size_full()
@@ -104,6 +132,7 @@ impl Render for ChatUi {
             .flex_col()
             .child(self.chat_feed.clone())
             .child(div().flex_grow().debug())
+            .child({ object_widget.clone() })
             .child(
                 div()
                     .debug()

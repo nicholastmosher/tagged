@@ -293,8 +293,11 @@ impl Profile {
     ) -> impl IntoElement {
         div()
             //
-            .debug()
-            .p_2()
+            // .debug()
+            // .p_2()
+            .flex_shrink()
+            .flex_auto()
+            // .w_full()
             // .flex_grow()
             .flex()
             .flex_col()
