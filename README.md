@@ -1,5 +1,12 @@
 # Project
 
+# 2026 Feb 23
+
+- Working on ObjectWidget
+- Want to make a generic interface to bridge with CRDTS
+  - Get live dynamic rendering of CRDT data
+- For now just to get rendering sorted, using serde_json::Value
+
 # 2026 Feb 21
 
 - Term idea: Create a "lens" of a particular object type at a directory

@@ -104,14 +104,14 @@ impl Render for ChatUi {
             ObjectWidget::new(
                 json!({
                     //
-                    "OneKey": "OneValue",
-                    // "One": {
-                    //     "One.One": "11",
-                        // "One.Two": [
-                        //     "One.Two.One",
-                        //     "One.Two.Two",
-                        //     "One.Two.Three",
-                        // ]
+                    // "OneKey": "OneValue",
+                    "One": {
+                        "One.One": "11",
+                        "One.Two": [
+                            "One.Two.One",
+                            "One.Two.Two",
+                            "One.Two.Three",
+                        ]
                     // },
                     // "Two": 2,
                     // "Three": 3,
@@ -119,7 +119,7 @@ impl Render for ChatUi {
                     //     "FourOne": "41",
                     //     "FourTwo": "42",
                     //     "FourThree": null,
-                    // }
+                    }
                 }),
                 cx,
             )
@@ -132,7 +132,7 @@ impl Render for ChatUi {
             .flex_col()
             .child(self.chat_feed.clone())
             .child(div().flex_grow().debug())
-            .child({ object_widget.clone() })
+            .child(object_widget.clone())
             .child(
                 div()
                     .debug()

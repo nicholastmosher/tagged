@@ -1,17 +1,19 @@
 use std::collections::HashMap;
 
-use serde_json::{Map, Value, json};
+use serde_json::{Map, Value};
+use tracing::info;
 use zed::unstable::{
     gpui::{AppContext as _, Entity},
     ui::{
-        ActiveTheme, App, Context, InteractiveElement, IntoElement, ParentElement as _, Render,
-        SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
+        ActiveTheme, App, Context, FluentBuilder, InteractiveElement, IntoElement,
+        ParentElement as _, Render, SharedString, StatefulInteractiveElement as _, Styled as _,
+        Window, div,
     },
 };
 
-fn init(cx: &mut App) {
-    // let _widget = cx.new(|cx| ObjectWidget::new(json!({}), cx));
-}
+// fn init(cx: &mut App) {
+//     // let _widget = cx.new(|cx| ObjectWidget::new(json!({}), cx));
+// }
 
 pub struct ObjectWidget {
     //
@@ -73,10 +75,15 @@ impl ObjectWidget {
     }
 
     /// Retrieve the state associated with the current traversal location
+    #[track_caller]
     pub fn path_state(&mut self) -> &mut PerPathState {
-        self.by_path
+        let location = core::panic::Location::caller();
+        let path_state = self
+            .by_path
             .entry(self.current_path.clone())
-            .or_insert_with(|| PerPathState { open: true })
+            .or_insert_with(|| PerPathState { open: true });
+        info!(?location, path = ?self.current_path, ?path_state, "Path state");
+        path_state
     }
 
     /// Navigate into the object via a number or key index
@@ -85,12 +92,13 @@ impl ObjectWidget {
         index: JsonIndex,
         window: &mut Window,
         cx: &mut Context<Self>,
-        f: impl Fn(&mut Self, &mut Window, &mut Context<Self>) -> R,
+        f: impl FnOnce(&mut Self, &mut Window, &mut Context<Self>) -> R,
     ) -> R
     where
         R: 'static,
     {
         self.current_path.push_index(index.clone());
+        info!(path = ?self.current_path, "Visiting");
         let res = f(self, window, cx);
         self.current_path.pop();
         res
@@ -122,6 +130,35 @@ impl Render for ObjectWidget {
 }
 
 impl ObjectWidget {
+    fn value_text_preview(&mut self, value: &Value) -> String {
+        match value {
+            Value::Null => {
+                //
+                "null".to_string()
+            }
+            Value::Bool(b) => {
+                //
+                if *b { "true" } else { "false" }.to_string()
+            }
+            Value::Number(number) => {
+                //
+                number.to_string()
+            }
+            Value::String(s) => {
+                s.to_string()
+                //
+            }
+            Value::Array(values) => {
+                //
+                format!("[...](len={})", values.len())
+            }
+            Value::Object(map) => {
+                //
+                format!("{{...}}(len={})", map.len())
+            }
+        }
+    }
+
     fn render_value(
         &mut self,
         value: &Value,
@@ -178,13 +215,23 @@ impl ObjectWidget {
             .flex()
             .flex_col()
             .children(map.iter().enumerate().map(|(i, (key, value))| {
-                // foreach kv
+                // foreach kv (entire row)
                 div()
+                    .debug()
                     // TODO better IDs
                     .id(SharedString::from(format!("object_widget-{i}")))
                     .w_full()
                     .flex()
                     .flex_row()
+                    .on_click({
+                        let key = key.clone();
+                        let value = value.clone();
+                        cx.listener(move |this, _event, _window, _cx| {
+                            //
+                            info!("Clicked KV ({key}, {value})");
+                            this.path_state().open = !this.path_state().open;
+                        })
+                    })
                     .active(|style| style.bg(active_color))
                     .hover(|style| style.bg(hover_bg_color).border_color(hover_border_color))
                     .child(
@@ -192,19 +239,33 @@ impl ObjectWidget {
                             //
                             .p_2()
                             .flex_1()
+                            // .flex_initial()
                             .child(format!("Key: {key}")),
                     )
-                    .child(div().p_2().flex_1().child({
-                        self.visiting(
-                            JsonIndex::Key(key.to_string()),
-                            window,
-                            cx,
-                            |this, window, cx| {
+                    // .when(!self.path_state().open, |it| {
+                    //     //
+                    //     it
+                    //         //
+                    //         .p_2()
+                    //         .flex_1()
+                    //         .child(self.value_text_preview(value))
+                    // })
+                    // When this key/value is open, render inner
+                    // .when(self.path_state().open, |stateful_div| {
+                    //
+                    .child(self.visiting(
+                        JsonIndex::Key(key.to_string()),
+                        window,
+                        cx,
+                        move |this, window, cx| {
+                            //
+                            div()
                                 //
-                                this.render_value(value, window, cx)
-                            },
-                        )
-                    }))
+                                .child(this.render_value(value, window, cx))
+                        },
+                    ))
+
+                // })
             }))
     }
 
