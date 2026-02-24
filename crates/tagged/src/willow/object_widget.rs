@@ -5,8 +5,9 @@ use tracing::info;
 use zed::unstable::{
     gpui::{AppContext as _, Entity},
     ui::{
-        ActiveTheme, Context, FluentBuilder, InteractiveElement, IntoElement, ParentElement as _,
-        Render, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
+        ActiveTheme, Context, FluentBuilder, Icon, IconName, InteractiveElement, IntoElement,
+        ParentElement as _, Render, SharedString, StatefulInteractiveElement as _, Styled as _,
+        Window, div,
     },
 };
 
@@ -118,7 +119,9 @@ impl ObjectWidget {
     }
 
     /// Navigate into the object via a number or key index
-    pub fn visiting<R>(
+    ///
+    /// Used to maintain UI state at each level of the object hierarchy.
+    pub fn with_path_context<R>(
         &mut self,
         index: JsonIndex,
         window: &mut Window,
@@ -129,7 +132,6 @@ impl ObjectWidget {
         R: 'static,
     {
         self.current_path.push_index(index.to_owned());
-        // info!(path = ?self.current_path, "Visiting");
         let res = f(self, window, cx);
         self.current_path.pop();
         res
@@ -151,11 +153,6 @@ impl Render for ObjectWidget {
                     .child(
                         div()
                             //
-                            // .id("the-object-widget-header")
-                            // .on_click(cx.listener(|this, event, window, cx| {
-                            //     info!("Clicked Object Widget Header");
-                            //     //
-                            // }))
                             .w_full()
                             .p_2()
                             .child("Object Header".to_string()),
@@ -252,7 +249,6 @@ impl ObjectWidget {
         let hover_border_color = cx.theme().colors().border.opacity(1.0);
 
         div()
-            .debug()
             //
             .children(map.iter().enumerate().map(|(i, (key, value))| {
                 div()
@@ -273,16 +269,32 @@ impl ObjectWidget {
                             .on_click({
                                 let key = key.clone();
                                 let value = value.clone();
-                                cx.listener(move |this, _event, _window, _cx| {
+                                cx.listener(move |this, _event, window, cx| {
                                     //
-                                    info!("Clicked KV ({key}, {value})");
-                                    this.path_state().open = !this.path_state().open;
+                                    this.with_path_context(
+                                        JsonIndex::Key(Cow::Borrowed(&key)),
+                                        window,
+                                        cx,
+                                        |this, window, cx| {
+                                            info!("Clicked KV ({key}, {value})");
+                                            this.path_state().open = !this.path_state().open;
+                                        },
+                                    )
                                 })
                             })
                             .active(|style| style.bg(active_color))
                             .hover(|style| {
                                 style.bg(hover_bg_color).border_color(hover_border_color)
                             })
+                            .child(div().p_2().map(|this| {
+                                let open = self.path_state().open;
+                                let icon_name = if open {
+                                    IconName::ChevronDown
+                                } else {
+                                    IconName::ChevronRight
+                                };
+                                this.child(Icon::new(icon_name))
+                            }))
                             // Row left child
                             .child(
                                 div()
@@ -298,23 +310,23 @@ impl ObjectWidget {
                                 div().p_2().flex_1().child(self.value_text_preview(value)),
                             ),
                     )
-                    // .when(self.path_state().open, |this| {
-                    .when(true, |this| {
-                        this
-                            // Children, if any
-                            // .debug()
-                            .child(
+                    .map(|parent| {
+                        //
+                        self.with_path_context(
+                            JsonIndex::Key(Cow::Borrowed(key)),
+                            window,
+                            cx,
+                            |this, window, cx| {
                                 //
-                                self.visiting(
-                                    JsonIndex::Key(Cow::Borrowed(key)),
-                                    window,
-                                    cx,
-                                    |this, window, cx| {
-                                        //
-                                        this.render_value(value, window, cx)
-                                    },
-                                ),
-                            )
+                                parent
+                                    //
+                                    .when(this.path_state().open, |this_div| {
+                                        this_div
+                                            //
+                                            .child(this.render_value(value, window, cx))
+                                    })
+                            },
+                        )
                     })
             }))
     }
@@ -337,11 +349,12 @@ impl ObjectWidget {
                     .flex()
                     .flex_row()
                     .child(div().child(format!("Index: {}", i)))
-                    .child(
-                        self.visiting(JsonIndex::Number(i), window, cx, |this, window, cx| {
-                            this.render_value(value, window, cx)
-                        }),
-                    )
+                    .child(self.with_path_context(
+                        JsonIndex::Number(i),
+                        window,
+                        cx,
+                        |this, window, cx| this.render_value(value, window, cx),
+                    ))
             }))
             .into_any_element()
     }
