@@ -1,4 +1,5 @@
 use serde_json::json;
+
 /// ChatUi is a `Workspace` item, rendering into the tab window
 use zed::unstable::{
     editor::Editor,
@@ -74,6 +75,7 @@ pub struct ChatUi {
     chat_feed: Entity<Feed<ChatBubble>>,
     focus_handle: FocusHandle,
     input_editor: Entity<Editor>,
+    object_widget: Entity<ObjectWidget>,
     title: String,
 }
 
@@ -89,17 +91,7 @@ impl ChatUi {
             editor.set_placeholder_text("Message", window, cx);
             editor
         });
-        Self {
-            chat_feed,
-            focus_handle: cx.focus_handle(),
-            input_editor,
-            title,
-        }
-    }
-}
 
-impl Render for ChatUi {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let object_widget = cx.new(|cx| {
             ObjectWidget::new(
                 json!({
@@ -112,27 +104,50 @@ impl Render for ChatUi {
                         //     "One.Two.Two",
                         //     "One.Two.Three",
                         // ]
-                    // },
+                    },
                     "Two": 2,
                     "Three": 3,
+                    "Four": [
+                        "FourOne",
+                        "FourTwo",
+                        "FourThree",
+                    ]
                     // "Four": {
                     //     "FourOne": "41",
                     //     "FourTwo": "42",
                     //     "FourThree": null,
-                    }
+                    // }
                 }),
                 cx,
             )
         });
 
+        Self {
+            chat_feed,
+            focus_handle: cx.focus_handle(),
+            input_editor,
+            object_widget,
+            title,
+        }
+    }
+}
+
+impl Render for ChatUi {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             //
+            // .id("the-chat-ui")
+            // .on_click(cx.listener(|this, event, window, cx| {
+            //     //
+            //     info!("Clicked Chat UI");
+            //     cx.propagate();
+            // }))
             .size_full()
             .flex()
             .flex_col()
             .child(self.chat_feed.clone())
-            .child(div().flex_grow().debug())
-            .child(object_widget.clone())
+            .child(div().p_2().flex_grow().debug())
+            .child(self.object_widget.clone())
             .child(
                 div()
                     .debug()
@@ -144,7 +159,7 @@ impl Render for ChatUi {
 }
 
 impl Focusable for ChatUi {
-    fn focus_handle(&self, _cx: &App) -> zed::unstable::gpui::FocusHandle {
+    fn focus_handle(&self, _cx: &App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }

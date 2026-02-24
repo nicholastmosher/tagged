@@ -13,6 +13,8 @@
   (abstractly/generically) into UI wrapping/decoration
 - Try to make a glue between UI and data that makes a visual language for data
 
+- Note to self: Don't instantiate UI items repeatedly in `render`
+
 # 2026 Feb 23
 
 > am

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
 use serde_json::{Map, Value};
 use tracing::info;
@@ -21,16 +21,16 @@ pub struct ObjectWidget {
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 struct JsonPath {
     /// Default value [] acts as root path
-    path: Vec<JsonIndex>,
+    path: Vec<JsonIndex<'static>>,
 }
 
 impl JsonPath {
-    pub fn push_index(&mut self, index: impl Into<JsonIndex>) -> &mut Self {
+    pub fn push_index(&mut self, index: impl Into<JsonIndex<'static>>) -> &mut Self {
         self.path.push(index.into());
         self
     }
 
-    pub fn pop(&mut self) -> Option<JsonIndex> {
+    pub fn pop(&mut self) -> Option<JsonIndex<'static>> {
         self.path.pop()
     }
 }
@@ -48,12 +48,21 @@ impl std::fmt::Display for JsonPath {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum JsonIndex {
-    Key(String),
+pub enum JsonIndex<'a> {
+    Key(Cow<'a, str>),
     Number(usize),
 }
 
-impl std::fmt::Display for JsonIndex {
+impl JsonIndex<'_> {
+    pub fn to_owned(&self) -> JsonIndex<'static> {
+        match self {
+            JsonIndex::Key(key) => JsonIndex::Key(Cow::Owned(key.to_string())),
+            JsonIndex::Number(n) => JsonIndex::Number(*n),
+        }
+    }
+}
+
+impl std::fmt::Display for JsonIndex<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             JsonIndex::Key(key) => write!(f, "{key}"),
@@ -62,15 +71,21 @@ impl std::fmt::Display for JsonIndex {
     }
 }
 
-impl From<usize> for JsonIndex {
+impl From<usize> for JsonIndex<'static> {
     fn from(value: usize) -> Self {
         Self::Number(value)
     }
 }
 
-impl From<String> for JsonIndex {
+impl From<String> for JsonIndex<'static> {
     fn from(value: String) -> Self {
-        Self::Key(value)
+        Self::Key(Cow::Owned(value))
+    }
+}
+
+impl<'a> From<&'a str> for JsonIndex<'a> {
+    fn from(value: &'a str) -> Self {
+        Self::Key(Cow::Borrowed(value))
     }
 }
 
@@ -93,12 +108,12 @@ impl ObjectWidget {
     /// Retrieve the state associated with the current traversal location
     #[track_caller]
     pub fn path_state(&mut self) -> &mut PerPathState {
-        let location = core::panic::Location::caller();
+        let caller = core::panic::Location::caller();
         let path_state = self
             .by_path
             .entry(self.current_path.clone())
             .or_insert_with(|| PerPathState { open: true });
-        info!(?location, path = ?self.current_path, ?path_state, "Path state");
+        info!(?caller, field_path = ?self.current_path, ?path_state, "Path state");
         path_state
     }
 
@@ -113,8 +128,8 @@ impl ObjectWidget {
     where
         R: 'static,
     {
-        self.current_path.push_index(index.clone());
-        info!(path = ?self.current_path, "Visiting");
+        self.current_path.push_index(index.to_owned());
+        // info!(path = ?self.current_path, "Visiting");
         let res = f(self, window, cx);
         self.current_path.pop();
         res
@@ -136,6 +151,11 @@ impl Render for ObjectWidget {
                     .child(
                         div()
                             //
+                            // .id("the-object-widget-header")
+                            // .on_click(cx.listener(|this, event, window, cx| {
+                            //     info!("Clicked Object Widget Header");
+                            //     //
+                            // }))
                             .w_full()
                             .p_2()
                             .child("Object Header".to_string()),
@@ -146,64 +166,6 @@ impl Render for ObjectWidget {
     }
 }
 
-// Attempt 2:
-impl ObjectWidget {
-    //
-    fn render_value2(
-        &mut self,
-        value: &Value,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        let path = self.current_path.to_string();
-
-        let active_color = cx.theme().colors().ghost_element_active;
-        let hover_bg_color = cx.theme().colors().ghost_element_hover;
-        let hover_border_color = cx.theme().colors().border.opacity(1.0);
-
-        //
-        let base = div()
-            //
-            .id(SharedString::from(format!("{path}-container")))
-            .w_full()
-            .p_2()
-            .flex()
-            .flex_row()
-            .active(|style| style.bg(active_color))
-            .hover(|style| style.bg(hover_bg_color).border_color(hover_border_color));
-
-        // match value {
-        //     Value::Null => todo!(),
-        //     Value::Bool(_) => todo!(),
-        //     Value::Number(number) => todo!(),
-        //     Value::String(_) => todo!(),
-        //     Value::Array(values) => todo!(),
-        //     Value::Object(map) => todo!(),
-        // }
-        base
-            //
-            .on_click(cx.listener(|this, event, window, cx| {
-                info!("Clicked kv");
-                //
-            }))
-            .child(
-                //
-                div()
-                    //
-                    .flex_1()
-                    .child("Key"),
-            )
-            .child(
-                //
-                div()
-                    //
-                    .flex_1()
-                    .child("Value"),
-            )
-    }
-}
-
-// Attempt 1:
 impl ObjectWidget {
     fn value_text_preview(&mut self, value: &Value) -> String {
         match value {
@@ -241,24 +203,28 @@ impl ObjectWidget {
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
         let it = div();
+        // let it = div().debug();
         // let it = div().size_full().debug();
         let it = match value {
             Value::Null => {
                 //
-                it.child("null").into_any_element()
+                // it.child("null").into_any_element()
+                it.into_any_element()
             }
             Value::Bool(b) => {
                 //
-                it.child(if *b { "true" } else { "false" })
-                    .into_any_element()
+                // it.child(if *b { "true" } else { "false" })
+                it.into_any_element()
             }
             Value::Number(number) => {
                 //
-                it.child(format!("{number}")).into_any_element()
+                // it.child(format!("{number}")).into_any_element()
+                it.into_any_element()
             }
             Value::String(string) => {
                 //
-                it.child(string.to_string()).into_any_element()
+                // it.child(string.to_string()).into_any_element()
+                it.into_any_element()
             }
             Value::Array(values) => {
                 //
@@ -286,6 +252,7 @@ impl ObjectWidget {
         let hover_border_color = cx.theme().colors().border.opacity(1.0);
 
         div()
+            .debug()
             //
             .children(map.iter().enumerate().map(|(i, (key, value))| {
                 div()
@@ -295,7 +262,7 @@ impl ObjectWidget {
                     .child(
                         // foreach kv (entire row)
                         div()
-                            .debug()
+                            // .debug()
                             // TODO better IDs
                             .id(SharedString::from(format!(
                                 "object_widget-{i}-{key}-{value}"
@@ -331,13 +298,22 @@ impl ObjectWidget {
                                 div().p_2().flex_1().child(self.value_text_preview(value)),
                             ),
                     )
-                    .when(self.path_state().open, |this| {
+                    // .when(self.path_state().open, |this| {
+                    .when(true, |this| {
                         this
                             // Children, if any
-                            .debug()
+                            // .debug()
                             .child(
                                 //
-                                self.render_value(value, window, cx),
+                                self.visiting(
+                                    JsonIndex::Key(Cow::Borrowed(key)),
+                                    window,
+                                    cx,
+                                    |this, window, cx| {
+                                        //
+                                        this.render_value(value, window, cx)
+                                    },
+                                ),
                             )
                     })
             }))
