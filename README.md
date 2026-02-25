@@ -1,5 +1,105 @@
 # Project: Tagged
 
+> Right now, this is mostly just a shitty fork of Zed
+
+An experiment, to figure out a way to put human beings back in charge of their own data.
+
+![Tagged](./.assets/tagged.svg)
+
+## Getting Started
+
+This project is effectively a plugin to a fork of Zed, so you'll need to clone both
+my fork of Zed and this project.
+
+> The fork only exists to add a tiny change to Zed's app builder to allow it to accept plugins.
+>
+> I think this is super cool and I'd really like Zed to upstream it but they closed my PR :(
+
+```
+# Clone Zed fork
+mkdir -p ~/git/github.com/nicholastmosher/zed
+cd ~/git/github.com/nicholastmosher/zed
+git clone https://github.com/nicholastmosher/zed .
+
+# Clone this project
+mkdir -p ~/git/github.com/nicholastmosher/tagged
+cd ~/git/github.com/nicholastmosher/tagged
+git clone https://github.com/nicholastmosher/tagged
+
+# Run
+cd tagged/crates/tagged
+cargo run
+```
+
+## Project Vision and Values
+
+Today, I see the centralization of software as a threat to democracy. In the last
+few decades, we have allowed our core productivity tools to shift from the Desktop
+to the Cloud. At the time, the appeal was a profound increase in the ability to
+collaborate, such as multi-cursor editing in google docs. However, it came at the
+cost of data ownership, privacy, and soverignty, because the form-factor of Cloud
+technology puts the data in control of the providers, not the users.
+
+Consider the Browser, which is a marvel of technology. It is less of an application
+and more of an application-platform. It's ultimately a program that can fetch content
+from a network and render it to the screen. The content may be static, like a blog,
+or dynamic, drawn by application code (JS/WASM) that itself is a form of content.
+The Browser is the platform which provides the tools to draw on screen, make network
+requests, play audio and video, and read/write to disk, and also takes on the responsibility
+for isolating sites from one another to protect user privacy.
+
+However, the greatest weakness of the Browser is that it fundamentally is only a **portal**
+to view data that lives remotely on a server. When you use any web service, you're
+not interacting with "your data" on somebody else's machine, you're interacting with
+somebody else's data _about you_ on _their_ machine. Under this model, users are at
+the mercy of application providers:
+
+- Content that was once available to you may become unavailable
+- Content that was once free may become paywalled
+- Data that you consider private may be used by providers to train AI
+- Data about you may be shared with arbitrary third-parties
+- Providers may track your browsing and build a profile of you for purposes
+  like targeted advertising or surveillance
+- Your interactions with other users may be tracked and profiled
+- In social media settings, the content you see is determined by the _provider_
+  rather than by you, so people can be divided and isolated in bubbles.
+- Content can be suppressed or boosted by providers, influencing public opinion
+  and radicalizing users
+
+The vision of this project is to create a next-generation application platform which
+puts users in control of their data by using durable local-first and peer-to-peer
+foundations. The spirit of this project is staunchly anti-capitalist, anti-fascist,
+pro-democracy, and pro-sovereignty. Human beings should be able to use digital systems
+while maintaining an expectation of privacy and anonymity, while also enjoying the
+capabilities of live collaboration and group sharing.
+
+## Leading use-cases
+
+The first handful of use-cases I want to support are all things that would be useful in
+local community organizing. I'd consider an essential toolkit should include chat, a
+calendar, and shared document editing. I want a mental model similar to discord, where
+there can be different spaces hosting content for different groups of users. I'd also
+like for multi-profile support to be first-class, and have strong considerations for
+privacy and anonymity built in.
+
+So imagine a discord-style server sidebar and chat topics on the left, then the main
+content window could be any kind of shared content. One goal of this project is to allow
+for third-party plugins to add support for varied content types.
+
+> TODO: Write more about social media and collaborative productivity suite
+
+## Technical Foundations
+
+I've been spending time in the last few years trying to learn the landscape of technology
+that would be necessary to build something like this. Right now, the core stack I'm
+considering is this:
+
+- Desktop UI and platform: Zed / GPUI
+- Peer-to-peer connectivity: Iroh, maybe libp2p, maybe modular
+- Data store: Willow
+
+> TODO: Write more about why I chose Zed and Willow as the basis for the stack
+
 # 2026 Feb 24
 
 - Need to write an intro and getting started and pin it to top of README
@@ -58,6 +158,7 @@
   It feels to me that the more expressive datatype (graph) would either want some special
   considerations during implementation that might influence the data model design, or might
   provide some significant benefits due to the increased expressivity.
+  - It feels like I'm describing inodes
 - Alternatively, what would it look like to implement a graph-based query system on top of existing
   hierarchical primitives? Interestingly... I think that GPUI's `Entity<T>` system already expresses
   a graph relationship.
@@ -146,6 +247,13 @@ Project vision (continued)
 - I think Bluesky and atproto take content discovery into account something like this
 
 ---
+
+Willow shell?
+
+- A typical shell navigates the user through a file space, a willow shell could navigate
+  through subspaces and namespaces as well.
+- Whereas a shell's significant state is what the current working directory is, a willow
+  shell context would also include a range of subspaces
 
 # 2026 Feb 23
 
