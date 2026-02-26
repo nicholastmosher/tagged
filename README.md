@@ -1,8 +1,18 @@
 # Project: Tagged
 
-> Right now, this is mostly just a shitty fork of Zed
-
 An experiment, to figure out a way to put human beings back in charge of their own data.
+
+> Right now, this is mostly just a shitty fork of Zed
+>
+> Please know that this is a passion project and is highly experimental. I'm doing this
+> because I see a desparate need for humans to take back control over our own digital lives,
+> and I have some ideas about how that might be possible to do.
+>
+> I do happen to be looking for help from any whole-hearted humans who see the vision I see
+> and want to help because they think it's the right thing to do. Between now and later, that
+> will hopefully include some inspired Rustaceans and aspiring users. An express goal of this
+> project is to be a powerful tool for local community groups to be able to organize with
+> each other while protecting group data.
 
 ![Tagged](./.assets/tagged.svg)
 
@@ -99,6 +109,26 @@ considering is this:
 - Data store: Willow
 
 > TODO: Write more about why I chose Zed and Willow as the basis for the stack
+
+# 2026 Feb 25
+
+- Need to think of TODOs
+  - Need to learn Zed/GPUI scrolling
+
+- Today I discovered https://github.com/dirvine/p2p
+- I think I was looking up p2p over ipv6
+- Today turned into a learning day checking out dirvine
+
+> In any serious conversation, you should always take the time to define any key elements
+> of any word you use. Meaningful exchanges include the expression of the shape of any
+> particular idea, but it's possible to get lost squabbling about the words we choose to
+> name the ideas. We end up using one set of words, but having such different underlying
+> definitions of some things that it means we're effectively speaking two different languages.
+
+Users
+Developers
+Data
+Capabilities
 
 # 2026 Feb 24
 
