@@ -112,6 +112,54 @@ considering is this:
 
 # 2026 Feb 25
 
+Use case: Local organizing
+Requirements / User story
+- Some folks get together and want a digital space to collaborate on their work
+- A trusted group member creates a new space and invites all the other members
+  - (in a Willow implementation, this may look like generating a namespace keypair)
+- Realistically, there would be an onboarding step here including convincing people to
+  use this tool and helping everybody get it intsalled and joined into the group
+- When opening the group's space for the first time, what does the user see?
+  - Option: All the pinned feeds for the space
+  - Option: A home canvas, which is like a dashboard that the space admins can set up
+    to display notable objects, such as chat feeds, a calendar, significant documents, etc.
+  - Option: A list of all the known members of the space, the public-facing Profile views
+  - Option: A list of all the object types in the space, e.g. chats, documents, tags,
+    feeds, photo albums (a grid feed), photos
+- Need: A feed of local events and a way to collaborate on organizing it. Create a list
+  of supplies, allow people to sign up to bring things. Create tasks and assign them to
+  people.
+
+---
+
+- As an organizational tool, a first-class consideration should be how delegates may
+  be assigned from a group to participate in another group/organization as a representative.
+- Create a standard mental model for trust, but which can apply to arbitrary cross-sections
+  of connectioons. For example trust in a gaming group would be different than trust in a
+  local organization.
+
+- Voting: Imagine a poll as an object type (perhaps) which can live in a space/directory
+  over time. Imagine a timeline of events of the poll, such as each vote submitted.
+- So you'd create a poll and maybe for a particular decision, you set an initial deadline
+  where all votes would be tallied. Imagine this like a git commit chain where you'd
+  "call" the vote by tagging a commit at a given time.
+- However, leave the poll open and active after calling the vote. Allow for users in the
+  future to update the poll, so new users can submit votes about a topic even after it
+  was initially "called". So polls could be durable entities, which have a life span that
+  allows opinions to be expressed and changed over time, verifiably.
+- For example, ? in our society it feels like Federal power is greater than State power
+  which is greater than Local power, in terms of perception. Imagine a society where this
+  assumption was flipped: Local law is the supreme law of the land, with state and
+  federal government serving just to provide standardized public services.
+- The fundamental shift here is a mental one. Instead of authority coming from an external,
+  third-party or distant entity, authority comes from within.
+- Everything that exists is no more less real than anything else. Every human that exists
+  does so under their own power.
+- Peace is allowing everything to happen how it happens, without trying to force anything
+  to be different than how it is.
+
+# 2026 Feb 25
+
 - Need to think of TODOs
   - Need to learn Zed/GPUI scrolling
 
