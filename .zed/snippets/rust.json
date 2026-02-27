@@ -1,0 +1,113 @@
+{
+  "Rust init function": {
+    "prefix": "init_fn",
+    "body": [
+      "pub fn init(cx: &mut App) {",
+      "    cx.observe_new(|workspace: &mut Workspace, window, cx| {",
+      "        let Some(window) = window else {",
+      "            return;",
+      "        };",
+      "",
+      "        $0",
+      "    })",
+      "    .detach();",
+      "}"
+    ],
+    "description": "Complete init function for Zed app"
+  },
+  "Generic struct": {
+    "prefix": "struct",
+    "body": [
+      "pub struct ${1:StructName} {",
+      "    ${2:field_name}: ${3:FieldType},",
+      "}"
+    ],
+    "description": "Generic struct definition with placeholders"
+  },
+  "Generic impl new": {
+    "prefix": "impl_new",
+    "body": [
+      "impl ${1:StructName} {",
+      "    pub fn new() -> Self {",
+      "        Self {",
+      "            ${2:field_name}: ${3:field_value},",
+      "        }",
+      "    }",
+      "}"
+    ],
+    "description": "Implementation of new() for a struct"
+  },
+  "Generic impl": {
+    "prefix": "impl",
+    "body": [
+      "impl ${1:StructName} {",
+      "    $0",
+      "}"
+    ],
+    "description": "Generic trait implementation block"
+  },
+  "Render trait impl": {
+    "prefix": "render_impl",
+    "body": [
+      "impl Render for ${1:StructName} {",
+      "    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {",
+      "        div()",
+      "    }",
+      "}"
+    ],
+    "description": "Render trait implementation for a struct"
+  },
+  "Focusable trait impl": {
+    "prefix": "focus_impl",
+    "body": [
+      "impl Focusable for ${1:StructName} {",
+      "    fn focus_handle(&self, cx: &App) -> zed::unstable::gpui::FocusHandle {",
+      "        self.focus_handle.clone()",
+      "    }",
+      "}"
+    ],
+    "description": "Focusable trait implementation for a struct"
+  },
+  "Editor creation": {
+    "prefix": "editor_create",
+    "body": [
+      "let input_editor = cx.new(|cx| {",
+      "    let mut editor = Editor::single_line(window, cx);",
+      "    editor.set_placeholder_text(\"${1:placeholder}\", window, cx);",
+      "    editor",
+      "});"
+    ],
+    "description": "Create a single-line editor with placeholder"
+  },
+  "Object definition": {
+    "prefix": "renderable",
+    "body": [
+      "pub struct ${1:TypeName} {",
+      "    focus_handle: FocusHandle,",
+      "}",
+      "",
+      "impl ${1:TypeName} {",
+      "    pub fn new(cx: &mut Context<Self>) -> Self {",
+      "        Self {",
+      "            //",
+      "            focus_handle: cx.focus_handle(),",
+      "        }",
+      "    }",
+      "}",
+      "",
+      "impl Render for ${1:TypeName} {",
+      "    fn render(&mut self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {",
+      "        div()",
+      "    }",
+      "}",
+      "",
+      "impl EventEmitter<()> for ${1:TypeName} {}",
+      "impl Focusable for ${1:TypeName} {",
+      "    fn focus_handle(&self) -> FocusHandle {",
+      "        self.focus_handle.clone()",
+      "    }",
+      "}",
+    ],
+    "description": "Create a new renderable entity"
+  }
+}
