@@ -11,7 +11,7 @@ use zed::unstable::{
     workspace::Item,
 };
 
-use crate::willow::object_widget::ObjectWidget;
+use crate::object_widget::ObjectWidget;
 
 pub struct Feed<T> {
     //

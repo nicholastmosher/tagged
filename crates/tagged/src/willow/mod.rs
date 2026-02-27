@@ -25,7 +25,6 @@ use crate::willow::{
 };
 
 pub mod button_input;
-pub mod object_widget;
 pub mod profile;
 pub mod space;
 
