@@ -5,9 +5,9 @@ use tracing::info;
 use zed::unstable::{
     gpui::{AppContext as _, Entity},
     ui::{
-        ActiveTheme, Context, FluentBuilder, Icon, IconButton, IconName, InteractiveElement,
-        IntoElement, ParentElement as _, Render, SharedString, StatefulInteractiveElement as _,
-        Styled as _, Window, div,
+        ActiveTheme, Context, FluentBuilder, IconButton, IconName, InteractiveElement, IntoElement,
+        ParentElement as _, Render, SharedString, StatefulInteractiveElement as _, Styled as _,
+        Window, div,
     },
 };
 
@@ -17,83 +17,6 @@ pub struct ObjectWidget {
 
     current_path: JsonPath,
     by_path: HashMap<JsonPath, PerPathState>,
-}
-
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
-struct JsonPath {
-    /// Default value [] acts as root path
-    path: Vec<JsonIndex<'static>>,
-}
-
-impl JsonPath {
-    pub fn push_index(&mut self, index: impl Into<JsonIndex<'static>>) -> &mut Self {
-        self.path.push(index.into());
-        self
-    }
-
-    pub fn pop(&mut self) -> Option<JsonIndex<'static>> {
-        self.path.pop()
-    }
-}
-
-impl std::fmt::Display for JsonPath {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let path = self
-            .path
-            .iter()
-            .map(|it| it.to_string())
-            .collect::<Vec<_>>()
-            .join("/");
-        write!(f, "{path}")
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum JsonIndex<'a> {
-    Key(Cow<'a, str>),
-    Number(usize),
-}
-
-impl JsonIndex<'_> {
-    pub fn to_owned(&self) -> JsonIndex<'static> {
-        match self {
-            JsonIndex::Key(key) => JsonIndex::Key(Cow::Owned(key.to_string())),
-            JsonIndex::Number(n) => JsonIndex::Number(*n),
-        }
-    }
-}
-
-impl std::fmt::Display for JsonIndex<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            JsonIndex::Key(key) => write!(f, "{key}"),
-            JsonIndex::Number(n) => write!(f, "{n}"),
-        }
-    }
-}
-
-impl From<usize> for JsonIndex<'static> {
-    fn from(value: usize) -> Self {
-        Self::Number(value)
-    }
-}
-
-impl From<String> for JsonIndex<'static> {
-    fn from(value: String) -> Self {
-        Self::Key(Cow::Owned(value))
-    }
-}
-
-impl<'a> From<&'a str> for JsonIndex<'a> {
-    fn from(value: &'a str) -> Self {
-        Self::Key(Cow::Borrowed(value))
-    }
-}
-
-#[derive(Debug)]
-pub struct PerPathState {
-    //
-    open: bool,
 }
 
 impl ObjectWidget {
@@ -388,4 +311,81 @@ impl ObjectWidget {
                     )
             }))
     }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+struct JsonPath {
+    /// Default value [] acts as root path
+    path: Vec<JsonIndex<'static>>,
+}
+
+impl JsonPath {
+    pub fn push_index(&mut self, index: impl Into<JsonIndex<'static>>) -> &mut Self {
+        self.path.push(index.into());
+        self
+    }
+
+    pub fn pop(&mut self) -> Option<JsonIndex<'static>> {
+        self.path.pop()
+    }
+}
+
+impl std::fmt::Display for JsonPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let path = self
+            .path
+            .iter()
+            .map(|it| it.to_string())
+            .collect::<Vec<_>>()
+            .join("/");
+        write!(f, "{path}")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum JsonIndex<'a> {
+    Key(Cow<'a, str>),
+    Number(usize),
+}
+
+impl JsonIndex<'_> {
+    pub fn to_owned(&self) -> JsonIndex<'static> {
+        match self {
+            JsonIndex::Key(key) => JsonIndex::Key(Cow::Owned(key.to_string())),
+            JsonIndex::Number(n) => JsonIndex::Number(*n),
+        }
+    }
+}
+
+impl std::fmt::Display for JsonIndex<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            JsonIndex::Key(key) => write!(f, "{key}"),
+            JsonIndex::Number(n) => write!(f, "{n}"),
+        }
+    }
+}
+
+impl From<usize> for JsonIndex<'static> {
+    fn from(value: usize) -> Self {
+        Self::Number(value)
+    }
+}
+
+impl From<String> for JsonIndex<'static> {
+    fn from(value: String) -> Self {
+        Self::Key(Cow::Owned(value))
+    }
+}
+
+impl<'a> From<&'a str> for JsonIndex<'a> {
+    fn from(value: &'a str) -> Self {
+        Self::Key(Cow::Borrowed(value))
+    }
+}
+
+#[derive(Debug)]
+pub struct PerPathState {
+    //
+    open: bool,
 }

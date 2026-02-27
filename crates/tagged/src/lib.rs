@@ -12,6 +12,7 @@ mod contacts;
 mod iroh_automerge_chat_ui;
 mod iroh_panel_ui;
 mod iroh_topic_chat_ui;
+mod object_widget;
 mod willow;
 // mod willow_whimsy;
 
