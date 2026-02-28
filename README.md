@@ -1410,3 +1410,73 @@ Today's plan (because I need to focus)
 
 - Follow the iroh-examples/iroh-automerge-repo example and try to integrate it visually in Zed
 - Can start with ad-hoc Iroh keys but eventually need a key store / identity/contact management system
+
+# Nov 2 2025
+
+App
+
+- Contact list, add by QR code for secure exchange
+- Pluggable, so apps can be added that use the shared
+  data store (Willow)
+- Need to figure out multi-profile while maintaining
+  (weak? or if strong how?) anonymity.
+- Pilot app ideas: Reddit, Quotejar
+- Additional use-case: human organizing. Imagine policies
+  that may be proposed and voted on (signed) by the community.
+- Reputation system for users?
+
+Domain model
+- Contact / Profile / Avatar
+- Entity / Post / Comment / Media /
+
+# Jan 29 2025
+
+Learning GPUI by reading the Zed source code. I'm impressed by
+the global AppContext programming style, and I'm trying to see
+if anything could be applied to a framework for async programming.
+
+I want to make a pluggable app framework that can be used to host
+private, local first, peer to peer apps. If it's possible to make
+it easy to write apps and provide all the tools needed for building,
+it could become its own ecosystem the same way HTTP in the browser is.
+
+I'm imagining a programming framework in Rust that's a from-scratch
+App builder like Bevy or Gpui, but with a focus on async programming.
+
+# Jan 20 2025
+
+What a terrible day to be writing anything at all
+
+## Peer to peer app idea: Kitchen sharing
+
+Imagine you could just decide what your food budget is
+and pool with a group of close friends and family and
+create a cooking schedule. Allow pitching in funds and
+coordinating shopping, and deciding who is going to do
+the cooking.
+
+Peer to peer would be well-suited for in-person group
+gatherings, which works into the intentions of the whole
+thing. So you form a "cooking group" with your inner
+circle, then you get a calendar for coordinating your
+collective food habits.
+
+Ideas if we were to reshape society based on this idea:
+Everybody builds their weeks based around their cooking
+schedule in their community. So say you have one "giving"
+day a week, maybe in a larger group you could have families
+with offset weekends, so some groups take of Saturday/Sunday
+for work, others take off Sunday/Monday, Monday/Tuesday, etc.
+So you have a community of communities, and each group,
+for example the Sunday/Monday weekenders might spend Monday
+as their giving day and cook all meals for everyone.
+
+So this idea, but implementing a p2p app for it:
+Contact list, need to figure out robust identity system, but
+ultimately using a contact list:
+You form a group, needs of a group:
+- Secure chat
+- Calendar
+- Recipe book
+- Money pool
+- Shared pantry?
