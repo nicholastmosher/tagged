@@ -1,7 +1,4 @@
-use zed::unstable::{
-    ui::App,
-    workspace::{OpenComponentPreview, Workspace},
-};
+use zed::unstable::ui::App;
 
 pub mod profile_switcher;
 
