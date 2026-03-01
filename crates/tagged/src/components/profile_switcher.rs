@@ -3,18 +3,13 @@ use std::path::PathBuf;
 use tracing::info;
 use zed::unstable::{
     component,
-    gpui::{
-        self, AppContext as _, ClickEvent, Corner, CursorStyle, DismissEvent, Entity, EventEmitter,
-        FocusHandle, Focusable,
-    },
+    gpui::{AppContext as _, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable},
     ui::{
-        ActiveTheme, AnyElement, App, AudioStatus, Avatar, AvatarAudioStatusIndicator,
-        AvatarAvailabilityIndicator, ButtonCommon, ButtonLike, ButtonSize, ButtonStyle, Clickable,
-        CollaboratorAvailability, Component, Context, Disableable, Element, ElementId,
-        FluentBuilder as _, IconButton, IconName, IconSize, InteractiveElement, IntoElement,
-        ParentElement as _, Popover, PopoverMenu, RegisterComponent, Rems, Render, RenderOnce,
-        SharedString, StatefulInteractiveElement as _, Styled, Toggleable, Tooltip, Window, div,
-        h_flex, px, v_flex,
+        ActiveTheme, AnyElement, App, Avatar, AvatarAvailabilityIndicator, ButtonCommon,
+        ButtonSize, CollaboratorAvailability, Component, Context, Element, FluentBuilder as _,
+        IconButton, IconName, IconSize, InteractiveElement, IntoElement, ParentElement as _,
+        RegisterComponent, Rems, Render, SharedString, StatefulInteractiveElement as _, Styled,
+        Window, div, h_flex, px, v_flex,
     },
 };
 
@@ -66,19 +61,18 @@ impl Profile {
 
 #[derive(RegisterComponent)]
 pub struct ProfileBar {
-    active_profile: Entity<Profile>,
+    nugget: Entity<ProfileNugget>,
     open: bool,
+    profile: Entity<Profile>,
 }
 
 impl ProfileBar {
-    pub fn new(
-        id: impl Into<ElementId>,
-        active_profile: Entity<Profile>,
-        cx: &mut Context<Self>,
-    ) -> Self {
+    pub fn new(profile: Entity<Profile>, cx: &mut Context<Self>) -> Self {
+        let nugget = cx.new(|cx| ProfileNugget::new(profile.clone(), cx));
         Self {
-            active_profile,
+            nugget,
             open: false,
+            profile,
         }
     }
 }
@@ -89,28 +83,14 @@ impl Render for ProfileBar {
             //
             .child(
                 h_flex()
+                    .flex_shrink()
                     //
                     .p_2()
                     .gap_2()
-                    .flex_shrink()
                     .rounded_md()
                     .shadow_md()
                     .bg(cx.theme().colors().panel_background)
-                    .child(
-                        // Profile icon, name, and status
-                        // self.render_profile_icon_name_status(window, cx),
-                        ProfileNugget::new("profile-nugget-myself", self.active_profile.clone())
-                            .on_click({
-                                let profile = self.active_profile.clone();
-                                move |_e, _window, cx| {
-                                    info!("Clicked profile nugget 1");
-                                    profile.update(cx, |profile, cx| {
-                                        profile.online = !profile.online;
-                                        cx.notify();
-                                    })
-                                }
-                            }),
-                    )
+                    .child(self.nugget.clone())
                     .child(
                         h_flex()
                             .p_2()
@@ -124,7 +104,7 @@ impl Render for ProfileBar {
                                 IconButton::new("profile-deafen", IconName::AudioOn)
                                     .icon_size(IconSize::Custom(Rems(1.25)))
                                     .size(ButtonSize::Large),
-                            ), // .child(popover),
+                            ),
                     ),
             )
     }
@@ -134,9 +114,8 @@ impl EventEmitter<()> for ProfileBar {}
 
 impl Component for ProfileBar {
     fn preview(_window: &mut Window, cx: &mut App) -> Option<AnyElement> {
-        let active_profile =
-            cx.new(|cx| Profile::new("Myselfandi", cx).with_avatar(".assets/tagged.svg"));
-        let profile_bar = cx.new(|cx| ProfileBar::new("the-profile", active_profile, cx));
+        let profile = cx.new(|cx| Profile::new("Myselfandi", cx).with_avatar(".assets/tagged.svg"));
+        let profile_bar = cx.new(|cx| ProfileBar::new(profile, cx));
         let canvas = div()
             //
             .debug()
@@ -180,88 +159,18 @@ impl Focusable for ProfileSwitcher {
 // ===================
 
 /// The part of the ProfileBar that shows the avatar, name, and status
-#[derive(IntoElement)]
 struct ProfileNugget {
-    base: ButtonLike,
     profile: Entity<Profile>,
 }
 
 impl ProfileNugget {
-    pub fn new(id: impl Into<ElementId>, profile: Entity<Profile>) -> Self {
-        Self {
-            base: ButtonLike::new(id),
-            profile,
-        }
+    pub fn new(profile: Entity<Profile>, cx: &mut Context<Self>) -> Self {
+        Self { profile }
     }
 }
 
-impl ButtonCommon for ProfileNugget {
-    fn id(&self) -> &ElementId {
-        self.base.id()
-    }
-
-    fn style(mut self, style: ButtonStyle) -> Self {
-        self.base = self.base.style(style);
-        self
-    }
-
-    fn size(mut self, size: ButtonSize) -> Self {
-        self.base = self.base.size(size);
-        self
-    }
-
-    fn tooltip(
-        mut self,
-        tooltip: impl Fn(&mut Window, &mut App) -> gpui::AnyView + 'static,
-    ) -> Self {
-        self.base = self.base.tooltip(tooltip);
-        self
-    }
-
-    fn tab_index(mut self, tab_index: impl Into<isize>) -> Self {
-        self.base = self.base.tab_index(tab_index);
-        self
-    }
-
-    fn layer(mut self, elevation: zed::unstable::ui::ElevationIndex) -> Self {
-        self.base = self.base.layer(elevation);
-        self
-    }
-
-    fn track_focus(mut self, focus_handle: &FocusHandle) -> Self {
-        self.base = self.base.track_focus(focus_handle);
-        self
-    }
-}
-
-impl Clickable for ProfileNugget {
-    fn on_click(mut self, handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static) -> Self {
-        self.base = self.base.on_click(handler);
-        self
-    }
-
-    fn cursor_style(mut self, cursor_style: CursorStyle) -> Self {
-        self.base = self.base.cursor_style(cursor_style);
-        self
-    }
-}
-
-impl Disableable for ProfileNugget {
-    fn disabled(mut self, disabled: bool) -> Self {
-        self.base = self.base.disabled(disabled);
-        self
-    }
-}
-
-impl Toggleable for ProfileNugget {
-    fn toggle_state(mut self, selected: bool) -> Self {
-        self.base = self.base.toggle_state(selected);
-        self
-    }
-}
-
-impl RenderOnce for ProfileNugget {
-    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+impl Render for ProfileNugget {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let active_bg_color = cx.theme().colors().ghost_element_active;
         let hover_bg_color = cx.theme().colors().ghost_element_hover;
         let _hover_border_color = cx.theme().colors().border.opacity(1.0);
