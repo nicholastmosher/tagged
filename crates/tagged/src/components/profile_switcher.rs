@@ -176,7 +176,8 @@ impl Render for ProfileNugget {
         h_flex()
             //
             .id("profile-nugget")
-            .p_2()
+            // .p_2()
+            .pl_2()
             .pr_4()
             .gap_4()
             .active(|style| style.bg(active_bg_color))
