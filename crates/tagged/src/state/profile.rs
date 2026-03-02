@@ -1,9 +1,11 @@
 use std::path::{Path, PathBuf};
 
 use zed::unstable::{
-    gpui::Entity,
+    gpui::{AppContext as _, Entity},
     ui::{App, Context, SharedString},
 };
+
+use crate::willow::Willow;
 
 pub fn init(cx: &mut App) {
     //
@@ -64,5 +66,23 @@ impl Profile {
 
     pub fn toggle_online(&mut self) {
         self.online = !self.online;
+    }
+}
+
+pub trait ProfileExt {
+    //
+    fn create_profile(&self, name: impl Into<SharedString>, cx: &mut App) -> Entity<Profile>;
+    fn profiles(&self, cx: &mut App) -> Vec<Entity<Profile>>;
+}
+
+impl ProfileExt for Willow {
+    fn create_profile(&self, name: impl Into<SharedString>, cx: &mut App) -> Entity<Profile> {
+        // TODO: Store the profile in the database
+        let profile = cx.new(|cx| Profile::new(name, cx));
+        profile
+    }
+
+    fn profiles(&self, cx: &mut App) -> Vec<Entity<Profile>> {
+        Vec::new()
     }
 }
