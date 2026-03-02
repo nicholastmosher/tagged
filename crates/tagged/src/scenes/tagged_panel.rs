@@ -1,9 +1,13 @@
+use std::path::PathBuf;
+
 use zed::unstable::{
-    gpui::{self, Action, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, actions},
+    gpui::{
+        self, Action, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, actions, img,
+    },
     ui::{
-        App, Context, IconName, InteractiveElement as _, IntoElement, ListSeparator,
-        ParentElement as _, Pixels, Render, StatefulInteractiveElement, Styled, Window, div,
-        h_flex, px, v_flex,
+        ActiveTheme, App, Context, FluentBuilder as _, IconName, InteractiveElement as _,
+        IntoElement, ListSeparator, ParentElement as _, Pixels, Render, StatefulInteractiveElement,
+        Styled, Tooltip, Window, div, h_flex, px, v_flex,
     },
     workspace::{
         Panel, Workspace,
@@ -35,7 +39,7 @@ pub fn init(cx: &mut App) {
 }
 
 pub struct TaggedPanel {
-    active_profile: Entity<Profile>,
+    active_profile: Option<Entity<Profile>>,
     active_space: Entity<Space>,
     focus_handle: FocusHandle,
     width: Option<Pixels>,
@@ -50,7 +54,8 @@ impl TaggedPanel {
 
         Self {
             //
-            active_profile,
+            active_profile: None,
+            // active_profile: Some(active_profile),
             active_space,
             focus_handle: cx.focus_handle(),
             width: None,
@@ -60,6 +65,167 @@ impl TaggedPanel {
 
 impl Render for TaggedPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .h_full()
+            .w(self.width.unwrap_or(px(300.)) - px(1.))
+            .map(|el| match &self.active_profile {
+                None => {
+                    //
+                    el
+                        //
+                        .child(self.render_initial_panel(window, cx))
+                }
+                Some(profile) => {
+                    //
+                    el
+                        //
+                        .child(self.render_active_profile(profile.clone(), window, cx))
+                }
+            })
+    }
+}
+
+impl TaggedPanel {
+    fn render_initial_panel(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        v_flex()
+            .debug()
+            .size_full()
+            //
+            .p_2()
+            .py_20()
+            .child(
+                v_flex()
+                    .debug()
+                    .flex_1()
+                    //
+                    .child(
+                        div()
+                            .text_center()
+                            .child("Welcome! To get started, create a new Profile"),
+                    )
+                    .child(
+                        //
+                        h_flex()
+                            .mx_auto()
+                            //
+                            .p_2()
+                            .border_4()
+                            .border_color(cx.theme().colors().border_selected)
+                            .rounded_2xl()
+                            .justify_center()
+                            .child(
+                                div()
+                                    .id("create-profile")
+                                    .hover(|style| {
+                                        style
+                                            //
+                                            .bg(cx.theme().colors().ghost_element_hover)
+                                    })
+                                    .active(|style| {
+                                        style
+                                            //
+                                            .bg(cx.theme().colors().ghost_element_active)
+                                    })
+                                    .rounded_xl()
+                                    .child(
+                                        //
+                                        img(PathBuf::from(".assets/create-profile.svg"))
+                                            //
+                                            .size(px(96.))
+                                            .rounded_xl(),
+                                    ),
+                            ),
+                    ),
+            )
+            .child(
+                v_flex()
+                    .debug()
+                    .flex_1()
+                    //
+                    .child("Then, you'll create your first Space")
+                    .child(
+                        //
+                        h_flex()
+                            .mx_auto()
+                            //
+                            .p_2()
+                            .border_2()
+                            .border_dashed()
+                            .border_color(cx.theme().colors().border_disabled)
+                            .rounded_2xl()
+                            .justify_center()
+                            .child(
+                                div()
+                                    .id("create-space")
+                                    .hover(|style| {
+                                        style
+                                            //
+                                            .bg(cx.theme().colors().ghost_element_hover)
+                                    })
+                                    .active(|style| {
+                                        style
+                                            //
+                                            .bg(cx.theme().colors().ghost_element_active)
+                                    })
+                                    .rounded_xl()
+                                    .child(
+                                        //
+                                        img(PathBuf::from(".assets/create-space.svg"))
+                                            //
+                                            .size(px(96.))
+                                            .rounded_xl(),
+                                    ),
+                            ),
+                    ),
+            )
+            .child(
+                //
+                h_flex()
+                    .mx_auto()
+                    //
+                    .p_2()
+                    .border_2()
+                    .border_dashed()
+                    .border_color(cx.theme().colors().border_disabled)
+                    .rounded_2xl()
+                    .justify_center()
+                    .child(
+                        div()
+                            .id("create-profile-next")
+                            .opacity(0.6)
+                            .hover(|style| {
+                                style
+                                    //
+                                    .opacity(1.)
+                                    .bg(cx.theme().colors().ghost_element_hover)
+                            })
+                            .active(|style| {
+                                style
+                                    //
+                                    .bg(cx.theme().colors().ghost_element_active)
+                            })
+                            .rounded_xl()
+                            .child(
+                                //
+                                img(PathBuf::from(".assets/create-profile.svg"))
+                                    //
+                                    .size(px(96.))
+                                    .rounded_xl(),
+                            ),
+                    ),
+            )
+    }
+
+    fn render_active_profile(
+        &mut self,
+        profile: Entity<Profile>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         v_flex()
             .h_full()
             .w(self.width.unwrap_or(px(300.)) - px(1.))
@@ -73,6 +239,14 @@ impl Render for TaggedPanel {
                         //
                         self.render_spaces_column(window, cx),
                     )
+                    .child(
+                        div()
+                            .h_full()
+                            .w_0()
+                            .mt_2()
+                            .border_1()
+                            .border_color(cx.theme().colors().border),
+                    )
                     // Active space content
                     .child(
                         //
@@ -80,51 +254,63 @@ impl Render for TaggedPanel {
                     ),
             )
             // Profile bar/selector
-            .child(self.render_profile_bar(window, cx))
+            .child(self.render_profile_bar(profile, window, cx))
     }
-}
 
-impl TaggedPanel {
     fn render_profile_bar(
         &mut self,
+        profile: Entity<Profile>,
         _window: &mut Window,
         _cx: &mut Context<Self>,
     ) -> impl IntoElement {
         h_flex()
             .w_full()
             .absolute()
+            .bottom_0()
             //
-            .mt_auto()
+            // .mt_auto()
             .p_2()
-            .child(ProfileBar::new(self.active_profile.clone()))
+            .child(ProfileBar::new(profile))
     }
 
     fn render_spaces_column(
         &mut self,
         _window: &mut Window,
-        _cx: &mut Context<Self>,
+        cx: &mut Context<Self>,
     ) -> impl IntoElement {
         v_flex()
             .id("spaces-column")
             .h_full()
-            .p_2()
+            .pt_2()
+            .px_2()
             .gap_1()
             .overflow_y_scroll()
             // TODO: Children, one per space for active profile
-            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+            .child(SpaceIcon::new("space-icon-1", ".assets/tagged.svg").size(px(48.)))
+            .child(SpaceIcon::new("space-icon-2", ".assets/tagged.svg").size(px(48.)))
+            .child(SpaceIcon::new("space-icon-3", ".assets/tagged.svg").size(px(48.)))
+            .child(SpaceIcon::new("space-icon-4", ".assets/tagged.svg").size(px(48.)))
+            .child(SpaceIcon::new("space-icon-5", ".assets/tagged.svg").size(px(48.)))
+            .child(SpaceIcon::new("space-icon-6", ".assets/tagged.svg").size(px(48.)))
+            .child(SpaceIcon::new("space-icon-7", ".assets/tagged.svg").size(px(48.)))
+            .child(SpaceIcon::new("space-icon-8", ".assets/tagged.svg").size(px(48.)))
+            .child(SpaceIcon::new("space-icon-9", ".assets/tagged.svg").size(px(48.)))
+            .child(SpaceIcon::new("space-icon-10", ".assets/tagged.svg").size(px(48.)))
+            .child(SpaceIcon::new("space-icon-11", ".assets/tagged.svg").size(px(48.)))
             .child(div().flex_grow())
             // TODO: Tools like create space (+)
-            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+            .child(
+                div()
+                    //
+                    .id("create-space")
+                    .bg(cx.theme().colors().editor_background)
+                    .rounded_xl()
+                    .child(
+                        SpaceIcon::new("space-icon-12", ".assets/create-space.svg")
+                            .size(px(48.))
+                            .tooltip(Tooltip::text("Create Space")),
+                    ),
+            )
     }
 
     fn render_active_space(
@@ -134,7 +320,6 @@ impl TaggedPanel {
     ) -> impl IntoElement {
         // Container, no flex
         v_flex()
-            .debug()
             //
             .p_2()
             .size_full()
