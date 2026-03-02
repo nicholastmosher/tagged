@@ -3,13 +3,13 @@ use std::path::PathBuf;
 use tracing::info;
 use zed::unstable::{
     component,
-    gpui::{AppContext as _, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable},
+    gpui::{self, AppContext as _, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable},
     ui::{
         ActiveTheme, AnyElement, App, Avatar, AvatarAvailabilityIndicator, ButtonCommon,
         ButtonSize, CollaboratorAvailability, Component, Context, Element, FluentBuilder as _,
         IconButton, IconName, IconSize, InteractiveElement, IntoElement, ParentElement as _,
-        RegisterComponent, Rems, Render, SharedString, StatefulInteractiveElement as _, Styled,
-        Window, div, h_flex, px, v_flex,
+        RegisterComponent, Rems, Render, RenderOnce, SharedString, StatefulInteractiveElement as _,
+        Styled, Window, div, h_flex, px, v_flex,
     },
 };
 
@@ -59,26 +59,19 @@ impl Profile {
     }
 }
 
-#[derive(RegisterComponent)]
+#[derive(IntoElement, RegisterComponent)]
 pub struct ProfileBar {
-    nugget: Entity<ProfileNugget>,
-    open: bool,
     profile: Entity<Profile>,
 }
 
 impl ProfileBar {
-    pub fn new(profile: Entity<Profile>, cx: &mut Context<Self>) -> Self {
-        let nugget = cx.new(|cx| ProfileNugget::new(profile.clone(), cx));
-        Self {
-            nugget,
-            open: false,
-            profile,
-        }
+    pub fn new(profile: Entity<Profile>) -> Self {
+        Self { profile }
     }
 }
 
-impl Render for ProfileBar {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+impl RenderOnce for ProfileBar {
+    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         h_flex()
             .flex_grow()
             //
@@ -87,7 +80,7 @@ impl Render for ProfileBar {
             .rounded_md()
             .shadow_md()
             .bg(cx.theme().colors().toolbar_background)
-            .child(self.nugget.clone())
+            .child(ProfileNugget::new(self.profile.clone()))
             .child(
                 h_flex()
                     .ml_auto()
@@ -112,62 +105,31 @@ impl EventEmitter<()> for ProfileBar {}
 impl Component for ProfileBar {
     fn preview(_window: &mut Window, cx: &mut App) -> Option<AnyElement> {
         let profile = cx.new(|cx| Profile::new("Myselfandi", cx).with_avatar(".assets/tagged.svg"));
-        let profile_bar = cx.new(|cx| ProfileBar::new(profile, cx));
         let canvas = div()
             //
             .debug()
             .p_4()
-            .child(profile_bar);
+            .child(ProfileBar::new(profile));
         Some(Element::into_any(canvas))
     }
 }
 
-/// The type used in the profile switching context menu
-pub struct ProfileSwitcher {
-    focus_handle: FocusHandle,
-}
-
-impl ProfileSwitcher {
-    pub fn new(cx: &mut Context<Self>) -> Self {
-        Self {
-            //
-            focus_handle: cx.focus_handle(),
-        }
-    }
-}
-
-impl Render for ProfileSwitcher {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        div()
-            //
-            .debug()
-            .p_4()
-            .child("ProfileSwitcher")
-    }
-}
-
-impl EventEmitter<DismissEvent> for ProfileSwitcher {}
-impl Focusable for ProfileSwitcher {
-    fn focus_handle(&self, _cx: &App) -> FocusHandle {
-        self.focus_handle.clone()
-    }
-}
-
-// ===================
+// =================
 
 /// The part of the ProfileBar that shows the avatar, name, and status
+#[derive(IntoElement)]
 struct ProfileNugget {
     profile: Entity<Profile>,
 }
 
 impl ProfileNugget {
-    pub fn new(profile: Entity<Profile>, cx: &mut Context<Self>) -> Self {
+    pub fn new(profile: Entity<Profile>) -> Self {
         Self { profile }
     }
 }
 
-impl Render for ProfileNugget {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+impl RenderOnce for ProfileNugget {
+    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let active_bg_color = cx.theme().colors().ghost_element_active;
         let hover_bg_color = cx.theme().colors().ghost_element_hover;
         let _hover_border_color = cx.theme().colors().border.opacity(1.0);
@@ -184,7 +146,7 @@ impl Render for ProfileNugget {
             .rounded_md()
             .on_click(move |_e, _window, cx| {
                 info!("Clicked profile nugget 2");
-                profile.update(cx, |profile, cx| {
+                profile.update(cx, |profile, _cx| {
                     profile.online = !profile.online;
                 });
             })
@@ -222,5 +184,38 @@ impl Render for ProfileNugget {
                             }),
                     ),
             )
+    }
+}
+
+// =================
+
+/// The type used in the profile switching context menu
+pub struct ProfileSwitcher {
+    focus_handle: FocusHandle,
+}
+
+impl ProfileSwitcher {
+    pub fn new(cx: &mut Context<Self>) -> Self {
+        Self {
+            //
+            focus_handle: cx.focus_handle(),
+        }
+    }
+}
+
+impl Render for ProfileSwitcher {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            //
+            .debug()
+            .p_4()
+            .child("ProfileSwitcher")
+    }
+}
+
+impl EventEmitter<DismissEvent> for ProfileSwitcher {}
+impl Focusable for ProfileSwitcher {
+    fn focus_handle(&self, _cx: &App) -> FocusHandle {
+        self.focus_handle.clone()
     }
 }
