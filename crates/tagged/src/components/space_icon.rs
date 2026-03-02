@@ -47,11 +47,11 @@ impl RenderOnce for SpaceIcon {
         div()
             //
             .hover(|style| style.opacity(0.6))
-            .rounded_lg()
             .child(
                 //
                 img(self.icon_path.clone())
                     .size(image_size)
+                    .rounded_xl()
                     .max_w_full()
                     .object_fit(ObjectFit::Contain),
             )
