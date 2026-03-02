@@ -118,6 +118,10 @@ considering is this:
 
 # 2026 March 2
 
+Screenshot from today
+
+![A discord-like UI with Profile shown at the bottom and Spaces shown on the left](.assets/screenshot-tagged-profile-20260302.png)
+
 - Did a lot of UI experimenting and reworking in the last few days
 - Started from scratch with discord-esque interface:
   - Profile indicator at the bottom of the sidebar
