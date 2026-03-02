@@ -4,17 +4,14 @@ An experiment, to figure out a way to put human beings back in charge of their o
 
 > Right now, this is mostly just a shitty fork of Zed
 >
-> Please know that this is a passion project and is highly experimental. I'm doing this
-> because I see a desparate need for humans to take back control over our own digital lives,
-> and I have some ideas about how that might be possible to do.
+> Please know that this is a passion project and is highly experimental. My motivation for
+> this project is to find a way for human beings to take back control over our digital lives.
 >
 > I do happen to be looking for help from any whole-hearted humans who see the vision I see
 > and want to help because they think it's the right thing to do. Between now and later, that
 > will hopefully include some inspired Rustaceans and aspiring users. An express goal of this
 > project is to be a powerful tool for local community groups to be able to organize with
 > each other while protecting group data.
-
-![Tagged](./.assets/tagged.svg)
 
 ## Getting Started
 
@@ -47,7 +44,7 @@ Today, I see the centralization of software as a threat to democracy. In the las
 few decades, we have allowed our core productivity tools to shift from the Desktop
 to the Cloud. At the time, the appeal was a profound increase in the ability to
 collaborate, such as multi-cursor editing in google docs. However, it came at the
-cost of data ownership, privacy, and soverignty, because the form-factor of Cloud
+cost of data ownership, privacy, and sovereignty, because the form-factor of Cloud
 technology puts the data in control of the providers, not the users.
 
 Consider the Browser, which is a marvel of technology. It is less of an application
@@ -110,6 +107,30 @@ considering is this:
 
 > TODO: Write more about why I chose Zed and Willow as the basis for the stack
 
+![Tagged](./.assets/tagged.svg)
+
+> I needed an icon and this is what came out of me playing with Inkscape >:D
+>
+> I was going for a hash-looking thing, and `t`s for "tagged", and this came out
+> also looking to me like DNA if you squint which is dope so for now I'm keeping it
+
+# 2026 March 2
+
+- Did a lot of UI experimenting and reworking in the last few days
+- Started from scratch with discord-esque interface:
+  - Profile indicator at the bottom of the sidebar
+  - List of spaces on the left bar with icons
+- I've started to figure out a pattern for organizing different UI elements, it was
+  pretty messy before:
+  - `components/` is full of `RenderOnce`s, which don't maintain state over time.
+    These are meant to hopefully be fairly reusable.
+  - `scenes/` is higher-level `Render` views that pull many components together, and not
+    really intended to be reused.
+  - `state/` is where definitions for Entities with domain-specific data live.
+    Maybe it'd be more classic to call this `models/` or something.
+  - `willow/` for data-access APIs, intended to be a DSL over actual Willow machinery
+  - Other stuff is still fairly disorganized
+
 # 2026 Feb 25
 
 Use case: Local organizing
@@ -135,7 +156,7 @@ Requirements / User story
 - As an organizational tool, a first-class consideration should be how delegates may
   be assigned from a group to participate in another group/organization as a representative.
 - Create a standard mental model for trust, but which can apply to arbitrary cross-sections
-  of connectioons. For example trust in a gaming group would be different than trust in a
+  of connections. For example trust in a gaming group would be different than trust in a
   local organization.
 
 - Voting: Imagine a poll as an object type (perhaps) which can live in a space/directory
@@ -1285,7 +1306,7 @@ Calendar User Journey
 - Attempted using `iroh-examples/iroh-automerge-repo` approach, automerge-repo (samod)
   seems to be having trouble `.find()`ing a document by ID.
 - I _think_ I'm running the sync task correctly, but I need to double-check.
-- I really _really_ want a working Willow store implementation, but while I'm waiting I'm
+- I'd really like to test with a Willow store implementation, but in the meantime I'm
   trying to learn the pros and cons of different p2p systems so I can imagine what a good
   API should feel like.
 - I'd love to attempt a global-context-pattern API for Willow. For this project I'd want
