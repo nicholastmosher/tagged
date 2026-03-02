@@ -176,7 +176,6 @@ impl Render for ProfileNugget {
         h_flex()
             //
             .id("profile-nugget")
-            // .p_2()
             .pl_2()
             .pr_4()
             .gap_4()
@@ -207,7 +206,6 @@ impl Render for ProfileNugget {
                                 )),
                         ),
                 )
-                //
             })
             .child(
                 v_flex()
@@ -217,7 +215,11 @@ impl Render for ProfileNugget {
                         div()
                             .text_sm()
                             .text_color(cx.theme().colors().text_muted)
-                            .child("Online"),
+                            .child(if self.profile.read(cx).online {
+                                "Online"
+                            } else {
+                                "Offline"
+                            }),
                     ),
             )
     }

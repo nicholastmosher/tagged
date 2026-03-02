@@ -57,22 +57,22 @@ impl Render for TaggedPanel {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         v_flex()
             //
-            .debug()
             .h_full()
             .w(self.width.unwrap_or(px(300.)) - px(1.))
             .child(
                 h_flex()
                     .h_full()
+                    .pb_20()
                     // Spaces bar
                     .child(
                         //
-                        div()
-                            .debug()
+                        v_flex()
                             .id("spaces-bar")
                             .h_full()
                             .p_2()
-                            .gap_4()
+                            .gap_1()
                             .overflow_y_scroll()
+                            // TODO: Children, one per space for active profile
                             .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
                             .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
                             .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
@@ -84,30 +84,33 @@ impl Render for TaggedPanel {
                             .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
                             .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
                             .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-                            .child(
-                                div()
-                                    //
-                                    // .debug()
-                                    .py(px(34.)),
-                            ),
+                            .child(div().flex_grow())
+                            // TODO: Tools like create space (+)
+                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.))),
                     )
                     // Active space content
-                    .child("Two"),
+                    .child(
+                        // Container, no flex
+                        div()
+                            .debug()
+                            //
+                            .p_2()
+                            .size_full()
+                            .child(
+                                //
+                                h_flex()
+                                    //
+                                    .mx_auto()
+                                    .justify_center()
+                                    .content_center()
+                                    .child("Active space content"),
+                            ),
+                    ),
             )
             // Profile bar
             .child(
                 h_flex()
+                    .w_full()
                     .absolute()
                     //
                     .mt_auto()
