@@ -4,10 +4,11 @@ use std::{
 };
 
 use zed::unstable::{
-    gpui::{self, ObjectFit, img},
+    gpui::{self, ObjectFit, Stateful, img},
     ui::{
-        AbsoluteLength, App, InteractiveElement, IntoElement, ParentElement as _, RenderOnce,
-        Styled, StyledImage, Window, div, rems,
+        AbsoluteLength, ActiveTheme as _, App, Div, ElementId, InteractiveElement, IntoElement,
+        ParentElement as _, RenderOnce, StatefulInteractiveElement, Styled, StyledImage, Window,
+        div, rems,
     },
 };
 
@@ -22,13 +23,22 @@ pub fn init(cx: &mut App) {
 
 #[derive(IntoElement)]
 pub struct SpaceIcon {
+    div: Stateful<Div>,
     icon_path: Arc<Path>,
     size: Option<AbsoluteLength>,
 }
 
+impl StatefulInteractiveElement for SpaceIcon {}
+impl InteractiveElement for SpaceIcon {
+    fn interactivity(&mut self) -> &mut gpui::Interactivity {
+        self.div.interactivity()
+    }
+}
+
 impl SpaceIcon {
-    pub fn new(icon_path: impl Into<PathBuf>) -> Self {
+    pub fn new(id: impl Into<ElementId>, icon_path: impl Into<PathBuf>) -> Self {
         Self {
+            div: div().id(id),
             icon_path: Arc::from(icon_path.into()),
             size: None,
         }
@@ -41,19 +51,21 @@ impl SpaceIcon {
 }
 
 impl RenderOnce for SpaceIcon {
-    fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
+    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let image_size = self.size.unwrap_or_else(|| rems(1.).into());
 
-        div()
+        self
             //
+            .div
             .hover(|style| style.opacity(0.6))
+            .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+            .rounded_xl()
             .child(
                 //
                 img(self.icon_path.clone())
                     .size(image_size)
                     .rounded_xl()
-                    .max_w_full()
-                    .object_fit(ObjectFit::Contain),
+                    .max_w_full(),
             )
     }
 }

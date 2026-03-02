@@ -1,13 +1,12 @@
 use tracing::info;
 use zed::unstable::{
     component,
-    gpui::{self, AppContext as _, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable},
+    gpui::{self, AppContext as _, Entity, EventEmitter},
     ui::{
         ActiveTheme, AnyElement, App, Avatar, AvatarAvailabilityIndicator, ButtonCommon,
-        ButtonSize, CollaboratorAvailability, Component, Context, Element, FluentBuilder as _,
-        IconButton, IconName, IconSize, InteractiveElement, IntoElement, ParentElement as _,
-        RegisterComponent, Rems, Render, RenderOnce, StatefulInteractiveElement as _, Styled,
-        Window, div, h_flex, px, v_flex,
+        ButtonSize, CollaboratorAvailability, Component, Element, FluentBuilder as _, IconButton,
+        IconName, IconSize, InteractiveElement, IntoElement, ParentElement as _, RegisterComponent,
+        Rems, RenderOnce, StatefulInteractiveElement as _, Styled, Window, div, h_flex, px, v_flex,
     },
 };
 
