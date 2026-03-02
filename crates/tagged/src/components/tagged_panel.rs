@@ -1,8 +1,8 @@
 use zed::unstable::{
     gpui::{self, Action, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, actions},
     ui::{
-        App, Context, IconName, IntoElement, ParentElement as _, Pixels, Render, Styled, Window,
-        div, h_flex, px, v_flex,
+        App, Context, IconName, InteractiveElement as _, IntoElement, ParentElement as _, Pixels,
+        Render, StatefulInteractiveElement, Styled, Window, div, h_flex, px, v_flex,
     },
     workspace::{
         Panel, Workspace,
@@ -68,20 +68,47 @@ impl Render for TaggedPanel {
                         //
                         div()
                             .debug()
+                            .id("spaces-bar")
                             .h_full()
-                            // .w_20()
                             .p_2()
                             .gap_4()
+                            .overflow_y_scroll()
                             .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
                             .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
                             .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
-                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.))),
+                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+                            .child(SpaceIcon::new(".assets/tagged.svg").size(px(48.)))
+                            .child(
+                                div()
+                                    //
+                                    // .debug()
+                                    .py(px(34.)),
+                            ),
                     )
                     // Active space content
                     .child("Two"),
             )
+            // Profile bar
             .child(
                 h_flex()
+                    .absolute()
                     //
                     .mt_auto()
                     .p_2()
