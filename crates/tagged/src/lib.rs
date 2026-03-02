@@ -29,7 +29,7 @@ pub fn init(cx: &mut App) {
     object_widget::init(cx);
     scenes::init(cx);
     state::init(cx);
-    // willow::init(cx);
+    willow::init(cx);
 }
 
 impl<T: Styled> DebugViewExt for T {}

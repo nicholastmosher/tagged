@@ -144,36 +144,3 @@ impl RenderOnce for ProfileNugget {
             )
     }
 }
-
-// =================
-
-/// The type used in the profile switching context menu
-pub struct ProfileSwitcher {
-    focus_handle: FocusHandle,
-}
-
-impl ProfileSwitcher {
-    pub fn new(cx: &mut Context<Self>) -> Self {
-        Self {
-            //
-            focus_handle: cx.focus_handle(),
-        }
-    }
-}
-
-impl Render for ProfileSwitcher {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        div()
-            //
-            .debug()
-            .p_4()
-            .child("ProfileSwitcher")
-    }
-}
-
-impl EventEmitter<DismissEvent> for ProfileSwitcher {}
-impl Focusable for ProfileSwitcher {
-    fn focus_handle(&self, _cx: &App) -> FocusHandle {
-        self.focus_handle.clone()
-    }
-}
