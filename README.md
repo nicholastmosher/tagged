@@ -118,6 +118,18 @@ considering is this:
 
 # 2026 March 2
 
+> pm
+
+- Yesterday got a ton of progress on 2nd UI iteration
+- But, I was using mock data and I don't have the 0 to 1 onboarding flow yet
+- Going to try to implement the UI and flow to start from scratch
+- I learned that there's an in-memory implementation of a Willow store! I'd
+  love to try it out as the backend
+
+# 2026 March 2
+
+> am
+
 Screenshot from today
 
 ![A discord-like UI with Profile shown at the bottom and Spaces shown on the left](.assets/screenshot-tagged-profile-20260302.png)

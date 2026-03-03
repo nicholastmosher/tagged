@@ -1,9 +1,5 @@
-use std::path::PathBuf;
-
 use zed::unstable::{
-    gpui::{
-        self, Action, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, actions, img,
-    },
+    gpui::{self, Action, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, actions},
     ui::{
         ActiveTheme, App, Context, FluentBuilder as _, IconName, InteractiveElement as _,
         IntoElement, ListSeparator, ParentElement as _, Pixels, Render, StatefulInteractiveElement,
@@ -16,8 +12,11 @@ use zed::unstable::{
 };
 
 use crate::{
-    components::{profile_bar::ProfileBar, space_header::SpaceHeader, space_icon::SpaceIcon},
-    state::{profile::Profile, space::Space},
+    components::{
+        onboarding_button::OnboardingButton, profile_bar::ProfileBar, space_header::SpaceHeader,
+        space_icon::SpaceIcon,
+    },
+    state::{onboarding::Onboarding, profile::Profile, space::Space},
 };
 
 actions!(workspace, [ToggleTaggedPanel]);
@@ -28,7 +27,8 @@ pub fn init(cx: &mut App) {
             return;
         };
 
-        let tagged_panel = cx.new(|cx| TaggedPanel::new(cx));
+        let workspace_entity = cx.entity();
+        let tagged_panel = cx.new(|cx| TaggedPanel::new(workspace_entity, cx));
         workspace.add_panel(tagged_panel, window, cx);
         workspace.focus_panel::<TaggedPanel>(window, cx);
         workspace.register_action(|workspace, _: &ToggleTaggedPanel, window, cx| {
@@ -42,15 +42,19 @@ pub struct TaggedPanel {
     active_profile: Option<Entity<Profile>>,
     active_space: Entity<Space>,
     focus_handle: FocusHandle,
+    onboarding: Entity<Onboarding>,
     width: Option<Pixels>,
+    workspace: Entity<Workspace>,
 }
 
 impl TaggedPanel {
-    pub fn new(cx: &mut Context<Self>) -> Self {
+    pub fn new(workspace: Entity<Workspace>, cx: &mut Context<Self>) -> Self {
         let active_profile =
             cx.new(|cx| Profile::new("Myselfandi", cx).with_avatar(".assets/tagged.svg"));
 
         let active_space = cx.new(|cx| Space::new("Group's Space", cx));
+
+        let onboarding = cx.new(|cx| Onboarding::new(workspace.clone(), cx));
 
         Self {
             //
@@ -58,7 +62,9 @@ impl TaggedPanel {
             // active_profile: Some(active_profile),
             active_space,
             focus_handle: cx.focus_handle(),
+            onboarding,
             width: None,
+            workspace,
         }
     }
 }
@@ -91,132 +97,73 @@ impl TaggedPanel {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let profile = None::<()>;
+        let space = None::<()>;
+        let next = None::<()>;
+
+        // Full panel body is a vertical flex
         v_flex()
-            .debug()
             .size_full()
             //
             .p_2()
-            .py_20()
+            // .py_20()
+            // Create Profile title
             .child(
-                v_flex()
-                    .debug()
-                    .flex_1()
+                //
+                div()
                     //
+                    .p_2()
                     .child(
                         div()
-                            .text_center()
-                            .child("Welcome! To get started, create a new Profile"),
+                            //
+                            .text_lg()
+                            .child("Welcome!"),
                     )
                     .child(
                         //
-                        h_flex()
-                            .mx_auto()
+                        div()
                             //
-                            .p_2()
-                            .border_4()
-                            .border_color(cx.theme().colors().border_selected)
-                            .rounded_2xl()
-                            .justify_center()
-                            .child(
-                                div()
-                                    .id("create-profile")
-                                    .hover(|style| {
-                                        style
-                                            //
-                                            .bg(cx.theme().colors().ghost_element_hover)
-                                    })
-                                    .active(|style| {
-                                        style
-                                            //
-                                            .bg(cx.theme().colors().ghost_element_active)
-                                    })
-                                    .rounded_xl()
-                                    .child(
-                                        //
-                                        img(PathBuf::from(".assets/create-profile.svg"))
-                                            //
-                                            .size(px(96.))
-                                            .rounded_xl(),
-                                    ),
-                            ),
+                            .text_sm()
+                            .text_color(cx.theme().colors().text_muted)
+                            .child("Let's get you started"),
                     ),
             )
-            .child(
-                v_flex()
-                    .debug()
-                    .flex_1()
-                    //
-                    .child("Then, you'll create your first Space")
-                    .child(
-                        //
-                        h_flex()
-                            .mx_auto()
-                            //
-                            .p_2()
-                            .border_2()
-                            .border_dashed()
-                            .border_color(cx.theme().colors().border_disabled)
-                            .rounded_2xl()
-                            .justify_center()
-                            .child(
-                                div()
-                                    .id("create-space")
-                                    .hover(|style| {
-                                        style
-                                            //
-                                            .bg(cx.theme().colors().ghost_element_hover)
-                                    })
-                                    .active(|style| {
-                                        style
-                                            //
-                                            .bg(cx.theme().colors().ghost_element_active)
-                                    })
-                                    .rounded_xl()
-                                    .child(
-                                        //
-                                        img(PathBuf::from(".assets/create-space.svg"))
-                                            //
-                                            .size(px(96.))
-                                            .rounded_xl(),
-                                    ),
-                            ),
-                    ),
-            )
+            // Create Profile
             .child(
                 //
-                h_flex()
-                    .mx_auto()
-                    //
-                    .p_2()
-                    .border_2()
-                    .border_dashed()
+                OnboardingButton::new(
+                    "create-profile",
+                    "Create a Profile",
+                    ".assets/create-profile.svg",
+                )
+                .border_color(cx.theme().colors().border_selected)
+                .on_click({
+                    let onboarding = self.onboarding.downgrade();
+                    move |e, window, cx| {
+                        let Some(onboarding) = onboarding.upgrade() else {
+                            return;
+                        };
+
+                        onboarding.update(cx, |onboarding, cx| {
+                            //
+                        });
+                    }
+                }),
+            )
+            // Create Space
+            .child(
+                //
+                OnboardingButton::new("create-space", "Create a Space", ".assets/create-space.svg")
+                    .border_color(cx.theme().colors().border_selected)
+                    .border_dashed(true),
+            )
+            // Next steps
+            .child(
+                //
+                OnboardingButton::new("next-steps", "Next steps", ".assets/create-profile.svg")
                     .border_color(cx.theme().colors().border_disabled)
-                    .rounded_2xl()
-                    .justify_center()
-                    .child(
-                        div()
-                            .id("create-profile-next")
-                            .opacity(0.6)
-                            .hover(|style| {
-                                style
-                                    //
-                                    .opacity(1.)
-                                    .bg(cx.theme().colors().ghost_element_hover)
-                            })
-                            .active(|style| {
-                                style
-                                    //
-                                    .bg(cx.theme().colors().ghost_element_active)
-                            })
-                            .rounded_xl()
-                            .child(
-                                //
-                                img(PathBuf::from(".assets/create-profile.svg"))
-                                    //
-                                    .size(px(96.))
-                                    .rounded_xl(),
-                            ),
-                    ),
+                    .border_dashed(true)
+                    .disabled(profile.is_none()),
             )
     }
 
