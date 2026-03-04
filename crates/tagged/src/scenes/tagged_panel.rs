@@ -1,3 +1,4 @@
+use tracing::info;
 use zed::unstable::{
     gpui::{self, Action, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, actions},
     ui::{
@@ -45,26 +46,32 @@ pub struct TaggedPanel {
     onboarding: Entity<Onboarding>,
     width: Option<Pixels>,
     workspace: Entity<Workspace>,
+
+    // temp
+    demo_profile: Entity<Profile>,
+    initial_panel: bool,
 }
 
 impl TaggedPanel {
     pub fn new(workspace: Entity<Workspace>, cx: &mut Context<Self>) -> Self {
-        let active_profile =
-            cx.new(|cx| Profile::new("Myselfandi", cx).with_avatar(".assets/tagged.svg"));
-
         let active_space = cx.new(|cx| Space::new("Group's Space", cx));
-
         let onboarding = cx.new(|cx| Onboarding::new(workspace.clone(), cx));
 
         Self {
             //
             active_profile: None,
-            // active_profile: Some(active_profile),
             active_space,
             focus_handle: cx.focus_handle(),
             onboarding,
             width: None,
             workspace,
+
+            // temp
+            demo_profile: cx.new(|cx| {
+                //
+                Profile::new("Myselfandi", cx).with_avatar(".assets/tagged.svg")
+            }),
+            initial_panel: true,
         }
     }
 }
@@ -74,19 +81,19 @@ impl Render for TaggedPanel {
         div()
             .h_full()
             .w(self.width.unwrap_or(px(300.)) - px(1.))
-            .map(|el| match &self.active_profile {
-                None => {
+            .when(self.initial_panel, |el| {
+                el
                     //
-                    el
+                    .child(
                         //
-                        .child(self.render_initial_panel(window, cx))
-                }
-                Some(profile) => {
+                        self.render_initial_panel(window, cx),
+                    )
+            })
+            .when(!self.initial_panel, |el| {
+                //
+                el
                     //
-                    el
-                        //
-                        .child(self.render_active_profile(profile.clone(), window, cx))
-                }
+                    .child(self.render_active_profile(self.demo_profile.clone(), window, cx))
             })
     }
 }
@@ -97,10 +104,6 @@ impl TaggedPanel {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let profile = None::<()>;
-        let space = None::<()>;
-        let next = None::<()>;
-
         // Full panel body is a vertical flex
         v_flex()
             .size_full()
@@ -137,6 +140,7 @@ impl TaggedPanel {
                     ".assets/create-profile.svg",
                 )
                 .border_color(cx.theme().colors().border_selected)
+                .border_dashed(true)
                 .on_click({
                     let onboarding = self.onboarding.downgrade();
                     move |e, window, cx| {
@@ -145,6 +149,7 @@ impl TaggedPanel {
                         };
 
                         onboarding.update(cx, |onboarding, cx| {
+                            onboarding.open_tab(window, cx);
                             //
                         });
                     }
@@ -155,6 +160,7 @@ impl TaggedPanel {
                 //
                 OnboardingButton::new("create-space", "Create a Space", ".assets/create-space.svg")
                     .border_color(cx.theme().colors().border_selected)
+                    .disabled(true)
                     .border_dashed(true),
             )
             // Next steps
@@ -167,7 +173,9 @@ impl TaggedPanel {
                 )
                 .border_color(cx.theme().colors().border_disabled)
                 .border_dashed(true)
-                .disabled(profile.is_none()),
+                .on_click(cx.listener(|this, _e, _window, _cx| {
+                    this.initial_panel = !this.initial_panel;
+                })),
             )
     }
 
@@ -249,13 +257,15 @@ impl TaggedPanel {
             .child(SpaceIcon::new("space-icon-10", ".assets/tagged.svg").size(px(48.)))
             .child(SpaceIcon::new("space-icon-11", ".assets/tagged.svg").size(px(48.)))
             .child(div().flex_grow())
-            // TODO: Tools like create space (+)
             .child(
                 div()
                     //
                     .id("create-space")
                     .bg(cx.theme().colors().editor_background)
                     .rounded_xl()
+                    .on_click(cx.listener(|this, _e, _window, _cx| {
+                        this.initial_panel = !this.initial_panel;
+                    }))
                     .child(
                         SpaceIcon::new("space-icon-12", ".assets/create-space.svg")
                             .size(px(48.))
