@@ -1,3 +1,4 @@
+use tracing::info;
 use zed::unstable::{
     gpui::{AppContext as _, Entity},
     ui::{Context, Window},
@@ -35,15 +36,34 @@ impl Onboarding {
         }
     }
 
-    pub fn open_onboarding(&self, window: &mut Window, cx: &mut Context<Self>) {
-        // Grab the existing item, or create one
-        let item = self
-            .onboarding_item
-            .clone()
-            .unwrap_or_else(|| cx.new(|cx| OnboardingItem::new(cx)));
-
+    pub fn open_tab(&self, window: &mut Window, cx: &mut Context<Self>) {
         self.workspace.update(cx, |workspace, cx| {
-            workspace.add_item_to_active_pane(Box::new(item), Some(0), true, window, cx);
+            // If active -> no action
+            let active_onboarding = workspace.active_item_as::<OnboardingItem>(cx);
+            if let Some(_onboarding_item) = active_onboarding {
+                //
+                return;
+            }
+
+            // If open -> activate
+            let open_onboarding = workspace
+                .items(cx)
+                .find_map(|it| it.downcast::<OnboardingItem>());
+            if let Some(onboarding_item) = open_onboarding {
+                workspace.activate_item(&onboarding_item, true, true, window, cx);
+                return;
+            }
+
+            // Otherwise -> Create and activate
+            let onboarding_item = cx.new(|cx| OnboardingItem::new(window, cx));
+            workspace.add_item_to_active_pane(
+                //
+                Box::new(onboarding_item),
+                Some(0),
+                true,
+                window,
+                cx,
+            );
         });
     }
 }
