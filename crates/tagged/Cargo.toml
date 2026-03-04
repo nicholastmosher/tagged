@@ -29,5 +29,6 @@ tokio-util = "0.7.17"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 tracing = "0.1.43"
 ufotofu = { version = "0.8.8", features = ["compat_futures_io"] }
+willow25 = { path = "../../../../../codeberg.org/worm-blossom/willow_rs/willow25" }
 willow-api-derive = { path = "../willow-api-derive" }
 zed = { path = "../../../zed2/crates/zed" }
