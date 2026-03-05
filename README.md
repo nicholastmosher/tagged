@@ -116,6 +116,12 @@ considering is this:
 > I was going for a hash-looking thing, and `t`s for "tagged", and this came out
 > also looking to me like DNA if you squint which is dope so for now I'm keeping it
 
+# 2026 March 5
+
+Screenshot from today
+
+![An onboarding page with Profile and Space forms](.assets/screenshot-tagged-onboarding-item-20260305.png)
+
 # 2026 March 4
 
 Screenshot from the start of today
