@@ -3,13 +3,18 @@ use std::path::PathBuf;
 use tracing::info;
 use zed::unstable::{
     editor::Editor,
-    gpui::{AppContext, Entity, EventEmitter, FocusHandle, Focusable, img, opaque_grey},
+    gpui::{
+        AppContext, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent, img, opaque_grey,
+    },
     ui::{
-        ActiveTheme, App, Context, InteractiveElement, IntoElement, ParentElement, Render,
-        SharedString, StatefulInteractiveElement, Styled, Window, div, h_flex, px, v_flex,
+        ActiveTheme, App, Context, FluentBuilder as _, InteractiveElement, IntoElement,
+        ParentElement, Render, SharedString, StatefulInteractiveElement, Styled, Window, div,
+        h_flex, px, v_flex,
     },
     workspace::Item,
 };
+
+use crate::willow::WillowExt as _;
 
 pub fn init(_cx: &mut App) {
     // cx.observe_new(|workspace: &mut Workspace, window, cx| {
@@ -23,6 +28,13 @@ pub fn init(_cx: &mut App) {
 pub struct OnboardingItem {
     focus_handle: FocusHandle,
     profile_name_editor: Entity<Editor>,
+    space_name_editor: Entity<Editor>,
+    space_kind: SpaceKind,
+}
+
+enum SpaceKind {
+    Owned,
+    Communal,
 }
 
 impl OnboardingItem {
@@ -33,16 +45,25 @@ impl OnboardingItem {
             editor
         });
 
+        let space_name_editor = cx.new(|cx| {
+            let mut editor = Editor::single_line(window, cx);
+            editor.set_placeholder_text("Space name", window, cx);
+            editor.set_text("Home", window, cx);
+            editor
+        });
+
         Self {
             //
             focus_handle: cx.focus_handle(),
             profile_name_editor,
+            space_kind: SpaceKind::Owned,
+            space_name_editor,
         }
     }
 }
 
 impl Render for OnboardingItem {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         v_flex()
             .size_full()
             .bg(cx.theme().colors().editor_background)
@@ -97,11 +118,33 @@ impl Render for OnboardingItem {
                                 //
                                 div()
                                     .id("profile-name-input")
+                                    .mt_2()
                                     //
                                     .p_2()
-                                    .on_key_down(cx.listener(|this, e, window, cx| {
-                                        info!(?e, "on_key_down");
+                                    .when(self.profile_name_editor.read(cx).is_focused(window), |el| {
                                         //
+                                        el
+                                            //
+                                            .border_2()
+                                            .border_color(cx.theme().colors().border_selected)
+                                            .rounded_md()
+                                    })
+                                    .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
+                                        info!(?e, "on_key_down");
+                                        let Some("\n") = e.keystroke.key_char.as_deref() else {
+                                            return;
+                                        };
+
+                                        let profile_name = this.profile_name_editor.read(cx).text(cx);
+                                        if profile_name.is_empty() {
+                                            // Do nothing if empty, any other input valid
+                                            return;
+                                        }
+
+                                        cx.willow().create_profile(profile_name, cx);
+
+                                        info!("Submit Create Profile");
+                                        cx.stop_propagation();
                                     }))
                                     .child(
                                         self.profile_name_editor.clone()
@@ -142,16 +185,43 @@ impl Render for OnboardingItem {
                                 h_flex()
                                     .flex_wrap()
                                     .p_4()
-                                    .gap_4()
+                                    .gap_2()
                                     .items_center()
                                     .child(
                                         //
                                         h_flex()
+                                            .id("space-owned")
                                             .w_1_2()
                                             .flex_1()
                                             //
-                                            .p_2()
+                                            .p_4()
                                             .gap_2()
+                                            .rounded_xl()
+                                            .map(|el| {
+                                                if let SpaceKind::Owned = self.space_kind {
+                                                    el
+                                                        //
+                                                        .border_4()
+                                                        .border_color(cx.theme().colors().border_selected)
+                                                } else {
+                                                    //
+                                                    el
+                                                        //
+                                                        .hover(|style| {
+                                                            style
+                                                                //
+                                                                .bg(cx.theme().colors().ghost_element_hover)
+                                                        })
+                                                        .active(|style| {
+                                                            style
+                                                                //
+                                                                .bg(cx.theme().colors().ghost_element_active)
+                                                        })
+                                                }
+                                            })
+                                            .on_click(cx.listener(|this, e, window, cx| {
+                                                this.space_kind = SpaceKind::Owned;
+                                            }))
                                             .child(
                                                 h_flex()
                                                     .bg(opaque_grey(1., 1.))
@@ -163,7 +233,7 @@ impl Render for OnboardingItem {
                                                         img(PathBuf::from(
                                                             ".assets/owned-namespace.png",
                                                         ))
-                                                        .size(px(48. * 3.)),
+                                                        .size(px(48. * 2.)),
                                                     ),
                                             )
                                             .child(
@@ -195,11 +265,37 @@ impl Render for OnboardingItem {
                                     .child(
                                         //
                                         h_flex()
+                                            .id("space-communal")
                                             .w_1_2()
                                             .flex_1()
                                             //
-                                            .p_2()
+                                            .p_4()
                                             .gap_2()
+                                            .rounded_xl()
+                                            .map(|el| {
+                                                if let SpaceKind::Communal = self.space_kind {
+                                                    el
+                                                        //
+                                                        .border_4()
+                                                        .border_color(cx.theme().colors().border_selected)
+                                                } else {
+                                                    el
+                                                        //
+                                                        .hover(|style| {
+                                                            style
+                                                                //
+                                                                .bg(cx.theme().colors().ghost_element_hover)
+                                                        })
+                                                        .active(|style| {
+                                                            style
+                                                                //
+                                                                .bg(cx.theme().colors().ghost_element_active)
+                                                        })
+                                                }
+                                            })
+                                            .on_click(cx.listener(|this, e, window, cx| {
+                                                this.space_kind = SpaceKind::Communal;
+                                            }))
                                             .child(
                                                 div()
                                                     .bg(opaque_grey(1., 1.))
@@ -211,7 +307,7 @@ impl Render for OnboardingItem {
                                                         img(PathBuf::from(
                                                             ".assets/communal-namespace.png",
                                                         ))
-                                                        .size(px(48. * 3.)),
+                                                        .size(px(48. * 2.)),
                                                     ),
                                             )
                                             .child(
@@ -234,11 +330,47 @@ impl Render for OnboardingItem {
                                                             .w_full()
                                                             //
                                                             // .child("Owned spaces by default are private to you. You may share read or write access to areas in your space, but nobody can access your space without explicit permission"),
-                                                            .child("Communal spaces can be joined by anyone"),
+                                                            .child("Communal spaces are public and can be joined by anyone"),
                                                     ),
                                             ),
                                     ),
-                            ),
+                            )
+                            .child(
+                                //
+                                div()
+                                    .id("space-name-input")
+                                    .mt_2()
+                                    //
+                                    .p_2()
+                                    .when(self.space_name_editor.read(cx).is_focused(window), |el| {
+                                        //
+                                        el
+                                            //
+                                            .border_2()
+                                            .border_color(cx.theme().colors().border_selected)
+                                            .rounded_md()
+                                    })
+                                    .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
+                                        info!(?e, "on_key_down");
+                                        let Some("\n") = e.keystroke.key_char.as_deref() else {
+                                            return;
+                                        };
+
+                                        let profile_name = this.space_name_editor.read(cx).text(cx);
+                                        if profile_name.is_empty() {
+                                            // Do nothing if empty, any other input valid
+                                            return;
+                                        }
+
+                                        cx.willow().create_profile(profile_name, cx);
+
+                                        info!("Submit Create Space");
+                                        cx.stop_propagation();
+                                    }))
+                                    .child(
+                                        self.space_name_editor.clone()
+                                    )
+                            )
                     ),
             )
     }

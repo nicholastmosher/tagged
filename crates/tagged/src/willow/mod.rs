@@ -56,7 +56,7 @@ impl Willow {
         willow
     }
 
-    fn create_profile(&self, name: impl Into<SharedString>, cx: &mut App) -> Entity<Profile> {
+    pub fn create_profile(&self, name: impl Into<SharedString>, cx: &mut App) -> Entity<Profile> {
         let profile = cx.new(|cx| Profile::new(name, cx));
         self.state.update(cx, |state, _cx| {
             state.profiles.push(profile.clone());
@@ -65,7 +65,7 @@ impl Willow {
         profile
     }
 
-    fn profiles(&self, cx: &mut App) -> Vec<Entity<Profile>> {
+    pub fn profiles(&self, cx: &mut App) -> Vec<Entity<Profile>> {
         self.state.read(cx).profiles.clone()
     }
 }

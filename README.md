@@ -118,6 +118,19 @@ considering is this:
 
 # 2026 March 5
 
+> pm
+
+- Just re-discovered gpui-component. I knew it existed, but I didn't know enough about
+  GPUI dev flow before to understand how to put it to use. Will probably be very helpful,
+  but I want to make sure to keep the human touch. I want the UI to be and feel hand-made
+- Stepper looks great
+
+- Probably need to complete onboarding flow before I move on to other work
+
+---
+
+> am
+
 Screenshot from start of today
 
 ![An onboarding page with Profile and Space forms](.assets/screenshot-tagged-onboarding-item-20260305.png)
