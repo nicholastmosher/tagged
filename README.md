@@ -116,6 +116,20 @@ considering is this:
 > I was going for a hash-looking thing, and `t`s for "tagged", and this came out
 > also looking to me like DNA if you squint which is dope so for now I'm keeping it
 
+# 2026 March 6
+
+> am
+
+Todo
+
+- Finish end-to-end "create Profile, create Space" flow, including generating real keys.
+  - Need to consider pubkey-derived iconography or other visual indicator
+- I feel like we're going to need a password-manager like interface, both API and UI.
+  - Need a layer that locks the keys after a timeout, requiring password unlock.
+  - I'm sure it'd be possible to tap into biometrics APIs but I don't know if I trust that
+  - Need to dedicate time to think about how in-memory unlock status is expressed
+  - Think about what is configurable, like Profile key unlock timeout
+
 # 2026 March 5
 
 > pm

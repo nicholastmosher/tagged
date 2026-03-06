@@ -3,10 +3,11 @@ use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use willow25::{
-    entry::{Entry, EntrylikeExt as _, NamespaceId, randomly_generate_subspace},
-    path,
-    prelude::WriteCapability,
-    storage::{MemoryStore, Store},
+    entry::{
+        randomly_generate_communal_namespace, randomly_generate_owned_namespace,
+        randomly_generate_subspace,
+    },
+    storage::MemoryStore,
 };
 use zed::unstable::{
     gpui::{AppContext, Entity, Global},
@@ -56,34 +57,69 @@ impl Willow {
         Self { state }
     }
 
-    pub fn create_profile(&self, name: impl Into<SharedString>, cx: &mut App) -> Entity<Profile> {
+    pub fn create_profile(
+        //
+        &self,
+        name: impl Into<SharedString>,
+        cx: &mut App,
+    ) -> Entity<Profile> {
+        let (_subspace_id, sub_secret) = randomly_generate_subspace(&mut rand_core_0_6_4::OsRng);
+        let profile = cx.new(move |cx| Profile::new(name, sub_secret, cx));
+
         self.state.update(cx, |state, cx| {
-            //
-            // let it = state.store.get_area(namespace_id, area);
-        });
-        let profile = cx.new(|cx| Profile::new(name, cx));
-        self.state.update(cx, |state, _cx| {
             state.profiles.push(profile.clone());
         });
 
         profile
     }
 
+    pub fn create_owned_space(&self, name: impl Into<SharedString>, cx: &mut App) -> Entity<Space> {
+        let (_namespace_id, ns_secret) =
+            randomly_generate_owned_namespace(&mut rand_core_0_6_4::OsRng);
+        let space = cx.new(move |cx| Space::new(name, ns_secret, cx));
+
+        self.state.update(cx, |state, cx| {
+            state.spaces.push(space.clone());
+        });
+
+        space
+    }
+
+    pub fn create_communal_space(
+        &self,
+        name: impl Into<SharedString>,
+        cx: &mut App,
+    ) -> Entity<Space> {
+        let (_namespace_id, ns_secret) =
+            randomly_generate_communal_namespace(&mut rand_core_0_6_4::OsRng);
+        let space = cx.new(move |cx| Space::new(name, ns_secret, cx));
+
+        self.state.update(cx, |state, cx| {
+            state.spaces.push(space.clone());
+        });
+
+        space
+    }
+
     pub fn profiles(&self, cx: &mut App) -> Vec<Entity<Profile>> {
         self.state.read(cx).profiles.clone()
+    }
+
+    pub fn spaces(&self, cx: &mut App) -> Vec<Entity<Space>> {
+        self.state.read(cx).spaces.clone()
     }
 }
 
 impl WillowState {
     fn new(store_path: PathBuf, cx: &mut Context<Self>) -> Self {
         let spaces = vec![
-            cx.new(|cx| Space::new("Home".to_string(), cx)),
-            cx.new(|cx| Space::new("Family".to_string(), cx)),
+            // cx.new(|cx| Space::new("Home".to_string(), cx)),
+            // cx.new(|cx| Space::new("Family".to_string(), cx)),
         ];
 
         let profiles = vec![
-            cx.new(|cx| Profile::new("Myselfandi", cx)),
-            cx.new(|cx| Profile::new("Alterego", cx)),
+            // cx.new(|cx| Profile::new("Myselfandi", cx)),
+            // cx.new(|cx| Profile::new("Alterego", cx)),
         ];
 
         let store = MemoryStore::new();
@@ -103,21 +139,21 @@ impl WillowState {
         // self.store
         //     .create_entry(data, payload_producer, payload_length, ingredients)
 
-        let mut csprng = rand_core::OsRng;
-        let (subspace_id, secret) = randomly_generate_subspace(&mut csprng);
-        let namespace_id = NamespaceId::from_bytes(&[17; 32]);
+        // let mut csprng = rand_core::OsRng;
+        // let (subspace_id, secret) = randomly_generate_subspace(&mut csprng);
+        // let namespace_id = NamespaceId::from_bytes(&[17; 32]);
 
-        let entry = Entry::builder()
-            .namespace_id(namespace_id.clone())
-            .subspace_id(subspace_id.clone())
-            .path(path!("/ideas"))
-            .timestamp(12345)
-            .payload(b"chocolate with mustard")
-            .build()
-            .unwrap();
+        // let entry = Entry::builder()
+        //     .namespace_id(namespace_id.clone())
+        //     .subspace_id(subspace_id.clone())
+        //     .path(path!("/ideas"))
+        //     .timestamp(12345)
+        //     .payload(b"chocolate with mustard")
+        //     .build()
+        //     .unwrap();
 
-        let cap = WriteCapability::new_communal(namespace_id.clone(), subspace_id.clone());
-        let authed = entry.authorise(&cap, &secret)?;
+        // let cap = WriteCapability::new_communal(namespace_id.clone(), subspace_id.clone());
+        // let authed = entry.authorise(&cap, &secret)?;
 
         Ok(())
     }

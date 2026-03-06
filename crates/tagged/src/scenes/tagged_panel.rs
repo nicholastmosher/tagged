@@ -1,3 +1,4 @@
+use willow25::entry::randomly_generate_subspace;
 use zed::unstable::{
     gpui::{self, Action, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, actions},
     ui::{
@@ -17,6 +18,7 @@ use crate::{
         space_icon::SpaceIcon,
     },
     state::{onboarding::Onboarding, profile::Profile, space::Space},
+    willow::WillowExt as _,
 };
 
 actions!(workspace, [ToggleTaggedPanel]);
@@ -53,7 +55,9 @@ pub struct TaggedPanel {
 
 impl TaggedPanel {
     pub fn new(workspace: Entity<Workspace>, cx: &mut Context<Self>) -> Self {
-        let active_space = cx.new(|cx| Space::new("Group's Space", cx));
+        let active_space = cx.willow().create_owned_space("Group's Space", cx);
+        // let communal = active_space.read(cx).is_communal();
+        // let active_space = cx.new(|cx| Space::new("Group's Space", cx));
         let onboarding = cx.new(|cx| Onboarding::new(workspace.clone(), cx));
 
         Self {
@@ -68,7 +72,9 @@ impl TaggedPanel {
             // temp
             demo_profile: cx.new(|cx| {
                 //
-                Profile::new("Myselfandi", cx).with_avatar(".assets/tagged.svg")
+                let mut csprng = rand_core_0_6_4::OsRng;
+                let (_demo_id, demo_secret) = randomly_generate_subspace(&mut csprng);
+                Profile::new("Myselfandi", demo_secret, cx).with_avatar(".assets/tagged.svg")
             }),
             initial_panel: true,
         }

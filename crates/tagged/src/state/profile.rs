@@ -1,10 +1,10 @@
 use std::path::{Path, PathBuf};
 
+use willow25::entry::SubspaceSecret;
 use zed::unstable::{
     gpui::{AppContext as _, Entity},
     ui::{App, Context, SharedString},
 };
-
 
 pub fn init(cx: &mut App) {
     //
@@ -32,15 +32,19 @@ impl ProfileManager {
 pub struct Profile {
     /// Path to the avatar image.
     avatar: Option<PathBuf>,
+
+    // TODO: Need a protected wrapper API, like `SecretEntity<T>` or such
+    key: SubspaceSecret,
     name: SharedString,
     online: bool,
 }
 
 impl Profile {
-    pub fn new(name: impl Into<SharedString>, cx: &mut Context<Self>) -> Self {
+    pub fn new(name: impl Into<SharedString>, key: SubspaceSecret, cx: &mut Context<Self>) -> Self {
         Self {
             //
             avatar: None,
+            key,
             name: name.into(),
             online: true,
         }

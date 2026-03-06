@@ -23,6 +23,7 @@
 //! - A calendar is just a list of events, rendered on a week or month view
 //! - A chat is just a list of messages and media, rendered as a conversation
 
+use willow25::entry::NamespaceSecret;
 use zed::unstable::ui::{App, Context, SharedString};
 
 pub fn init(cx: &mut App) {
@@ -30,15 +31,27 @@ pub fn init(cx: &mut App) {
 }
 
 pub struct Space {
+    key: NamespaceSecret,
     name: SharedString,
 }
 
 impl Space {
-    pub fn new(name: impl Into<SharedString>, _cx: &mut Context<Self>) -> Self {
-        Space { name: name.into() }
+    pub fn new(
+        name: impl Into<SharedString>,
+        key: NamespaceSecret,
+        _cx: &mut Context<Self>,
+    ) -> Self {
+        Space {
+            key,
+            name: name.into(),
+        }
     }
 
     pub fn name(&self) -> SharedString {
         self.name.clone()
+    }
+
+    pub fn is_communal(&self) -> bool {
+        self.key.corresponding_namespace_id().is_communal()
     }
 }
