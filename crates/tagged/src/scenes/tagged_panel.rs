@@ -9,9 +9,9 @@ use zed::unstable::{
         FocusHandle, Focusable, KeyDownEvent, actions, bounce, img, quadratic,
     },
     ui::{
-        ActiveTheme, App, Context, FluentBuilder as _, IconName, InteractiveElement as _,
-        IntoElement, ListSeparator, ParentElement as _, Pixels, Render, SharedString,
-        StatefulInteractiveElement, Styled, Tooltip, Window, div, h_flex, px, v_flex,
+        ActiveTheme, App, Context, FluentBuilder as _, Icon, IconName, IconSize,
+        InteractiveElement as _, IntoElement, ListSeparator, ParentElement as _, Pixels, Render,
+        SharedString, StatefulInteractiveElement, Styled, Tooltip, Window, div, h_flex, px, v_flex,
     },
     workspace::{
         Panel, Workspace,
@@ -53,7 +53,7 @@ pub fn init(cx: &mut App) {
 
 pub struct TaggedPanel {
     active_profile: Option<Entity<Profile>>,
-    active_space: Entity<Space>,
+    active_space: Option<Entity<Space>>,
     focus_handle: FocusHandle,
     onboarding: Entity<Onboarding>,
     width: Option<Pixels>,
@@ -85,7 +85,8 @@ impl TaggedPanel {
             //
             active_profile: None,
             // active_profile: Some(demo_profile.clone()),
-            active_space,
+            active_space: None,
+            // active_space: Some(active_space),
             focus_handle: cx.focus_handle(),
             onboarding,
             width: None,
@@ -109,6 +110,7 @@ impl Render for TaggedPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .h_full()
+            .bg(cx.theme().colors().editor_background)
             .w(self.width.unwrap_or(px(300.)) - px(1.))
             .when(self.initial_panel, |el| {
                 el
@@ -228,10 +230,11 @@ impl TaggedPanel {
             .h_full()
             .w(self.width.unwrap_or(px(300.)) - px(1.))
             // Profile space?
+            .gap_1()
             .child(
                 h_flex()
                     .h_full()
-                    .pb_24()
+                    .flex_grow()
                     // Spaces bar
                     .child(
                         //
@@ -262,8 +265,6 @@ impl TaggedPanel {
     ) -> impl IntoElement {
         h_flex()
             .w_full()
-            .absolute()
-            .bottom_0()
             //
             .p_1()
             .map(|el| {
@@ -292,7 +293,7 @@ impl TaggedPanel {
 
     fn render_bottom_bar_create_profile(
         &mut self,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let is_bouncing = self
@@ -303,7 +304,7 @@ impl TaggedPanel {
             .not();
         h_flex()
             .size_full()
-            .bg(cx.theme().colors().editor_background)
+            .bg(cx.theme().colors().panel_background)
             // Floating heart-plus
             .gap_2()
             .p_1()
@@ -379,6 +380,16 @@ impl TaggedPanel {
                         div()
                             //
                             .p_2()
+                            .border_b_1()
+                            .map(|el| {
+                                if self.create_profile_editor.read(cx).is_focused(window) {
+                                    el
+                                        //
+                                        .border_color(cx.theme().colors().border_selected)
+                                } else {
+                                    el
+                                }
+                            })
                             .child(self.create_profile_editor.clone()),
                     )
                     .child(
@@ -441,35 +452,104 @@ impl TaggedPanel {
                 .tooltip(Tooltip::text(format!("Space {i}")))
             }))
             .child(div().flex_grow())
-            .child(
+            .child({
+                let new_space_bounces =
+                    self.active_profile.is_some() && self.active_space.is_none();
                 div()
                     //
                     .id("create-space")
-                    .bg(cx.theme().colors().editor_background)
+                    .bg(cx.theme().colors().panel_background)
                     .rounded_xl()
+                    .hover(|style| {
+                        style
+                            //
+                            .bg(cx.theme().colors().ghost_element_hover)
+                    })
+                    .active(|style| {
+                        style
+                            //
+                            .bg(cx.theme().colors().ghost_element_active)
+                    })
                     .on_click(cx.listener(|this, _e, _window, _cx| {
                         this.initial_panel = !this.initial_panel;
                     }))
                     .child(
-                        SpaceIcon::new("space-icon-12", ".assets/create-space.svg")
+                        img(PathBuf::from(".assets/create-space.svg"))
                             .size(px(48.))
                             .tooltip(Tooltip::text("Create Space")),
-                    ),
-            )
+                    )
+                    .with_animation(
+                        "create-space-animation",
+                        Animation::new(Duration::from_millis(1800))
+                            .repeat()
+                            .with_easing(bounce(quadratic)),
+                        move |el, t| {
+                            if new_space_bounces {
+                                el
+                                    //
+                                    .bottom(px((t * 6.) - 0.))
+                            } else {
+                                //
+                                el
+                            }
+                        },
+                    )
+            })
     }
 
+    /// The area above the Profiles bar and right of the Spaces bar
     fn render_active_space(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        // Container, no flex
+        v_flex()
+            // .debug()
+            .bg(cx.theme().colors().editor_background)
+            //
+            .p_2()
+            .size_full()
+        // .when(self.active_space.is_none(), |el| {
+        //     //
+        //     el
+        //         //
+        //         .child(
+        //             //
+        //             self.render_create_space(window, cx),
+        //         )
+        // })
+        // .child(SpaceHeader::new(self.active_space.clone()))
+        // .child(ListSeparator)
+    }
+
+    fn render_create_space(
         &mut self,
         _window: &mut Window,
         _cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        // Container, no flex
         v_flex()
             //
-            .p_2()
-            .size_full()
-            .child(SpaceHeader::new(self.active_space.clone()))
-            .child(ListSeparator)
+            .child(div().flex_grow())
+            .child(
+                //
+                img(PathBuf::from(IconName::ArrowLeft.path().to_string())).with_animation(
+                    "create-space-bounce",
+                    Animation::new(Duration::from_millis(1800))
+                        .repeat()
+                        .with_easing(bounce(quadratic)),
+                    move |this, t| {
+                        if true {
+                            //
+                            this
+                                //
+                                .bottom(px((t * 6.) - 3.))
+                        } else {
+                            this
+                        }
+                    },
+                ),
+            )
     }
 }
 

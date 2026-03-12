@@ -36,7 +36,7 @@ impl RenderOnce for ProfileBar {
             .gap_2()
             .rounded_md()
             .shadow_md()
-            .bg(cx.theme().colors().toolbar_background)
+            .bg(cx.theme().colors().panel_background)
             .child(ProfileNugget::new(self.profile.clone()))
             .child(
                 h_flex()

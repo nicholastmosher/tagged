@@ -66,7 +66,9 @@ impl Willow {
         cx: &mut App,
     ) -> Entity<Profile> {
         let (_subspace_id, sub_secret) = randomly_generate_subspace(&mut rand_core_0_6_4::OsRng);
-        let profile = cx.new(move |cx| Profile::new(name, sub_secret, cx));
+        let profile = cx.new(move |cx| {
+            Profile::new(name, sub_secret, cx).with_avatar(".assets/create-profile.svg")
+        });
 
         self.state.update(cx, |state, _cx| {
             state.profiles.push(profile.clone());
