@@ -13,6 +13,7 @@ use zed::unstable::{
         InteractiveElement as _, IntoElement, ListSeparator, ParentElement as _, Pixels, Render,
         SharedString, StatefulInteractiveElement, Styled, Tooltip, Window, div, h_flex, px, v_flex,
     },
+    ui_input::InputField,
     workspace::{
         Panel, Workspace,
         dock::{DockPosition, PanelEvent},
@@ -62,14 +63,15 @@ pub struct TaggedPanel {
     // temp
     demo_profile: Entity<Profile>,
     initial_panel: bool,
-    create_profile_editor: Entity<Editor>,
+    // create_profile_editor: Entity<Editor>,
+    create_profile_input: Entity<InputField>,
     bottom_bar_height: Pixels,
     create_profile_key: ProfileKey,
 }
 
 impl TaggedPanel {
     pub fn new(workspace: Entity<Workspace>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let active_space = cx.willow().create_owned_space("Group's Space", cx);
+        // let active_space = cx.willow().create_owned_space("Group's Space", cx);
         // let communal = active_space.read(cx).is_communal();
         // let active_space = cx.new(|cx| Space::new("Group's Space", cx));
         let onboarding = cx.new(|cx| Onboarding::new(workspace.clone(), cx));
@@ -95,11 +97,7 @@ impl TaggedPanel {
             // temp
             demo_profile,
             initial_panel: true,
-            create_profile_editor: cx.new(|cx| {
-                let mut editor = Editor::single_line(window, cx);
-                editor.set_placeholder_text("Display name", window, cx);
-                editor
-            }),
+            create_profile_input: cx.new(|cx| InputField::new(window, cx, "Profile name")),
             bottom_bar_height: px(48.),
             create_profile_key: ProfileKey::new(),
         }
@@ -296,7 +294,7 @@ impl TaggedPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let display_name_empty = self.create_profile_editor.read(cx).text(cx).is_empty();
+        let display_name_empty = self.create_profile_input.read(cx).is_empty(cx);
         h_flex()
             .size_full()
             .bg(cx.theme().colors().panel_background)
@@ -322,7 +320,7 @@ impl TaggedPanel {
                             .bg(cx.theme().colors().ghost_element_active)
                     })
                     .on_click(cx.listener(|this, e, window, cx| {
-                        let name = this.create_profile_editor.read(cx).text(cx);
+                        let name = this.create_profile_input.read(cx).text(cx);
                         if name.is_empty() {
                             return;
                         }
@@ -336,7 +334,7 @@ impl TaggedPanel {
                             return;
                         };
 
-                        let name = this.create_profile_editor.read(cx).text(cx);
+                        let name = this.create_profile_input.read(cx).text(cx);
                         if name.is_empty() {
                             return;
                         }
@@ -375,17 +373,7 @@ impl TaggedPanel {
                         div()
                             //
                             .p_2()
-                            .border_b_1()
-                            .map(|el| {
-                                if self.create_profile_editor.read(cx).is_focused(window) {
-                                    el
-                                        //
-                                        .border_color(cx.theme().colors().border_selected)
-                                } else {
-                                    el
-                                }
-                            })
-                            .child(self.create_profile_editor.clone())
+                            .child(self.create_profile_input.clone())
                             .child(
                                 //
                                 div()
