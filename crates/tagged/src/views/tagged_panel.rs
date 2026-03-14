@@ -20,9 +20,7 @@ use zed::unstable::{
 };
 
 use crate::{
-    components::{
-        onboarding_button::OnboardingButton, profile_bar::ProfileBar, space_icon::SpaceIcon,
-    },
+    components::{profile_bar::ProfileBar, space_icon::SpaceIcon},
     state::{
         onboarding::Onboarding,
         profile::{Profile, ProfileKey},
@@ -109,115 +107,11 @@ impl Render for TaggedPanel {
             .h_full()
             .bg(cx.theme().colors().editor_background)
             .w(self.width.unwrap_or(px(300.)) - px(1.))
-            // .when(self.initial_panel, |el| {
-            //     el
-            //         //
-            //         .child(
-            //             //
-            //             self.render_initial_panel(window, cx),
-            //         )
-            // })
-            // .when(!self.initial_panel, |el| {
-            //     //
-            //     el
-            //         //
-            //         .child(self.render_active_panel(window, cx))
-            // })
             .child(self.render_active_panel(window, cx))
     }
 }
 
 impl TaggedPanel {
-    fn render_initial_panel(
-        &mut self,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        // Full panel body is a vertical flex
-        v_flex()
-            .id("tagged-panel")
-            .size_full()
-            //
-            .p_2()
-            // .py_20()
-            // Create Profile title
-            .overflow_y_scroll()
-            .child(
-                //
-                div()
-                    //
-                    .p_2()
-                    .child(
-                        div()
-                            //
-                            .text_lg()
-                            .child("Welcome!"),
-                    )
-                    .child(
-                        //
-                        div()
-                            //
-                            .text_sm()
-                            .text_color(cx.theme().colors().text_muted)
-                            .child("Let's get you started"),
-                    ),
-            )
-            // Create Profile
-            .child(
-                //
-                OnboardingButton::new(
-                    "create-profile",
-                    "Create a Profile",
-                    ".assets/create-profile.svg",
-                )
-                .when(self.active_profile.is_some(), |el| {
-                    el
-                        //
-                        .border_color(cx.theme().colors().border_selected)
-                })
-                .when(self.active_profile.is_none(), |el| {
-                    el
-                        //
-                        .border_dashed(true)
-                })
-                .on_click({
-                    let onboarding = self.onboarding.downgrade();
-                    move |_e, window, cx| {
-                        let Some(onboarding) = onboarding.upgrade() else {
-                            return;
-                        };
-
-                        onboarding.update(cx, |onboarding, cx| {
-                            onboarding.open_tab(window, cx);
-                            //
-                        });
-                    }
-                }),
-            )
-            // Create Space
-            .child(
-                //
-                OnboardingButton::new("create-space", "Create a Space", ".assets/create-space.svg")
-                    .border_color(cx.theme().colors().border_selected)
-                    .disabled(true)
-                    .border_dashed(true),
-            )
-            // Next steps
-            .child(
-                //
-                OnboardingButton::new(
-                    "connect-peers",
-                    "Connect with Peers",
-                    ".assets/connect-peers.svg",
-                )
-                .border_color(cx.theme().colors().border_disabled)
-                .border_dashed(true)
-                .on_click(cx.listener(|this, _e, _window, _cx| {
-                    this.initial_panel = !this.initial_panel;
-                })),
-            )
-    }
-
     fn render_active_panel(
         &mut self,
         window: &mut Window,
@@ -564,17 +458,6 @@ impl TaggedPanel {
             //
             .p_2()
             .size_full()
-        // .when(self.active_space.is_none(), |el| {
-        //     //
-        //     el
-        //         //
-        //         .child(
-        //             //
-        //             self.render_create_space(window, cx),
-        //         )
-        // })
-        // .child(SpaceHeader::new(self.active_space.clone()))
-        // .child(ListSeparator)
     }
 
     fn render_create_space(
