@@ -4,7 +4,7 @@ use anyhow::bail;
 use zed::unstable::{
     gpui::{
         AppContext as _, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable,
-        PathPromptOptions, TextOverflow, img, opaque_grey,
+        PathPromptOptions, img, opaque_grey,
     },
     menu::{self},
     ui::{
@@ -342,7 +342,7 @@ impl Render for CreateSpaceModal {
                                         Checkbox::new(("space-add-profile-admin", i), *toggle_state)
                                             //
                                             .label(profile.read(cx).name())
-                                            .on_click(cx.listener(move |this, _e, _window, cx| {
+                                            .on_click(cx.listener(move |this, _e, _window, _cx| {
                                             let profile = profile.clone();
                                             let Some(toggle_state) = this.input.profile_toggle_states.get_mut(&profile) else {
                                                 return;
@@ -403,7 +403,7 @@ impl Render for CreateSpaceModal {
                                                     },
                                                 };
                                                 if let Some(icon_path) = &this.icon_path {
-                                                    space.update(cx, |space, cx| {
+                                                    space.update(cx, |space, _cx| {
                                                         space.set_icon_path(icon_path.clone());
                                                     });
                                                 }

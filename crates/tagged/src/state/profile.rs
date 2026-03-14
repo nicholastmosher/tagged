@@ -5,37 +5,16 @@ use std::{
 
 use hex::ToHex as _;
 use willow25::entry::{SubspaceId, SubspaceSecret, randomly_generate_subspace};
-use zed::unstable::{
-    gpui::Entity,
-    ui::{App, Context, SharedString},
-};
+use zed::unstable::ui::{App, Context, SharedString};
 
 pub fn init(_cx: &mut App) {
     //
 }
 
-/// Data-only manager for profiles
-pub struct ProfileManager {
-    //
-    profiles: Vec<Entity<Profile>>,
-}
-
-impl ProfileManager {
-    pub fn new() -> Self {
-        Self {
-            profiles: Vec::new(),
-        }
-    }
-
-    pub fn add_profile(&mut self, profile: Entity<Profile>) {
-        self.profiles.push(profile);
-    }
-}
-
 pub struct ProfileKey(SubspaceSecret);
 impl ProfileKey {
     // TODO: plumb RNG? or is this fine
-    pub fn new() -> Self {
+    pub fn generate() -> Self {
         let (_subspace_id, sub_secret) = randomly_generate_subspace(&mut rand_core_0_6_4::OsRng);
         ProfileKey(sub_secret)
     }
@@ -63,7 +42,7 @@ pub struct Profile {
     avatar: Option<PathBuf>,
 
     // TODO: Need a protected wrapper API, like `SecretEntity<T>` or such
-    key: SubspaceSecret,
+    key: ProfileKey,
     name: SharedString,
     online: bool,
 }
@@ -77,14 +56,14 @@ impl Profile {
         Self {
             //
             avatar: None,
-            key,
+            key: ProfileKey(key),
             name: name.into(),
             online: true,
         }
     }
 
     pub fn id(&self) -> ProfileId {
-        ProfileId(self.key.corresponding_subspace_id())
+        ProfileId(self.key.0.corresponding_subspace_id())
     }
 
     pub fn name(&self) -> SharedString {

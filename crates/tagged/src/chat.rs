@@ -9,8 +9,6 @@ use zed::unstable::{
     workspace::Item,
 };
 
-// use crate::object_widget::ObjectWidget;
-
 pub struct Feed<T> {
     //
     children: Vec<Entity<T>>,
