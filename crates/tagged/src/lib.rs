@@ -10,10 +10,9 @@ use zed::unstable::{
 mod chat;
 mod components;
 mod contacts;
-// mod function_widget;
-mod iroh_automerge_chat_ui;
-mod iroh_panel_ui;
-mod iroh_topic_chat_ui;
+// mod iroh_automerge_chat_ui;
+// mod iroh_panel_ui;
+// mod iroh_topic_chat_ui;
 // mod object_widget;
 mod state;
 mod views;

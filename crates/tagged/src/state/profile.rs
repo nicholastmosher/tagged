@@ -107,22 +107,3 @@ impl Profile {
         self.online = !self.online;
     }
 }
-
-// pub trait ProfileExt {
-//     //
-//     fn create_profile(&self, name: impl Into<SharedString>, cx: &mut App) -> Entity<Profile>;
-//     fn profiles(&self, cx: &mut App) -> Vec<Entity<Profile>>;
-// }
-
-// // TODO: Need external building blocks on Willow
-// impl ProfileExt for Willow {
-//     fn create_profile(&self, name: impl Into<SharedString>, cx: &mut App) -> Entity<Profile> {
-//         // TODO: Store the profile in the database
-//         let profile = cx.new(|cx| Profile::new(name, cx));
-//         profile
-//     }
-
-//     fn profiles(&self, cx: &mut App) -> Vec<Entity<Profile>> {
-//         Vec::new()
-//     }
-// }

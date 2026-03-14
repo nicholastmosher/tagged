@@ -5,7 +5,7 @@ use zed::unstable::{
         AppContext as _, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, img,
         opaque_grey,
     },
-    menu::{self, Cancel},
+    menu::{self},
     ui::{
         ActiveTheme as _, App, Button, Checkbox, Clickable as _, Context, FluentBuilder as _, Icon,
         IconName, InteractiveElement as _, IntoElement, KeyBinding, Label, LabelCommon as _,
@@ -262,7 +262,7 @@ impl Render for CreateSpaceModal {
                                         Checkbox::new(("space-add-profile-admin", i), *toggle_state)
                                             //
                                             .label(profile.read(cx).name())
-                                            .on_click(cx.listener(move |this, e, window, cx| {
+                                            .on_click(cx.listener(move |this, _e, _window, cx| {
                                             let profile = profile.clone();
                                             let Some(toggle_state) = this.input.profile_toggle_states.get_mut(&profile) else {
                                                 return;

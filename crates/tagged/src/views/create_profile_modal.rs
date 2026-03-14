@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use anyhow::bail;
-use tracing::{debug, warn};
 use zed::unstable::{
     gpui::{
         AppContext as _, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable,
@@ -105,7 +104,7 @@ impl Render for CreateProfileModal {
                                             //
                                             .bg(cx.theme().colors().ghost_element_active)
                                     })
-                                    .on_click(cx.listener(|this, e, window, cx| {
+                                    .on_click(cx.listener(|_this, _e, _window, cx| {
                                         let options =  PathPromptOptions {
                                             files: true,
                                             directories: false,
@@ -129,7 +128,7 @@ impl Render for CreateProfileModal {
                                                 bail!("Profile icon expected one path");
                                             };
 
-                                            this_entity.update(cx, |this, cx| {
+                                            this_entity.update(cx, |this, _cx| {
                                                 this.icon_path = Some(path.clone());
                                             })?;
 
@@ -183,7 +182,7 @@ impl Render for CreateProfileModal {
                                                 // Create Profile
                                                 let profile = cx.willow().create_profile(name, cx);
                                                 if let Some(icon) = &this.icon_path {
-                                                    profile.update(cx, |profile, cx| {
+                                                    profile.update(cx, |profile, _cx| {
                                                         profile.set_avatar(icon);
                                                     });
                                                 }

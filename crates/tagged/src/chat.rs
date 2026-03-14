@@ -1,5 +1,3 @@
-use serde_json::json;
-
 /// ChatUi is a `Workspace` item, rendering into the tab window
 use zed::unstable::{
     editor::Editor,
