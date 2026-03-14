@@ -5,8 +5,8 @@ use zed::unstable::{
 };
 
 use crate::{
-    scenes::onboarding_item::OnboardingItem,
     state::{profile::Profile, space::Space},
+    views::onboarding_item::OnboardingItem,
 };
 
 /// State tracking a user's first interaction with the app
