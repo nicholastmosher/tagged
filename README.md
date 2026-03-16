@@ -116,6 +116,39 @@ considering is this:
 > I was going for a hash-looking thing, and `t`s for "tagged", and this came out
 > also looking to me like DNA if you squint which is dope so for now I'm keeping it
 
+# 2026 March 16
+
+> pm
+
+- Started a new rebase attempt yesterday, started out good, continuing today trying
+  to work through dependency mismatches.
+- Solved all compile problems, but now `cargo run` does nothing in zed or here :why:
+
+- Op log zed3 before rebase 674a5de30b35
+- Op log top after rebase but stopped running 998e74f0d1cd
+- Going back to 674a5de30b35
+- In zed3, before and after rebase, zed now `cargo run`s and quits, exit 0, no window
+
+- ooh, so I finished rebasing Zed and now it works to set a git ref dependency
+  from here. Now it's not necessary to first clone the Zed fork to build this
+
+> am
+
+- I should be able to plug in my USB drive and have everything I do synced to the
+  local disk AND the USB drive. I should be able to click a quick sync/eject button
+  (like a plain "save" in a document editor) and be able to walk away with my full
+  and up-to-date store. Encrypted and safe but portable and convenient, to be plugged
+  into any other "terminal" and resume work.
+  - I wonder if a "node" should be named 1:1 with a willow store directory. So the
+    desktop app would be one node, and could connect a USB drive as another node,
+    and a remote peer would also be considered a node
+
+- Add Zed feature to open a file projected view into a buffer of a file at a specific
+  commit in git history. Use a virtual worktree or something.
+  - Inspired by me wanting to read back through Willow's latest commits and having
+    `jj --name-only` open, I want to be able to just open a Zed tab to any spot in
+    the history
+
 # 2026 March 14
 
 > pm
@@ -165,10 +198,9 @@ impl<T> RemoteEntity<T> {
 trait TheMacro { }
 
 struct ChatContent {
-    #[the_macro(content)]
+    // Has native impls required for trait tree
     author_id: ProfileId,
 }
-
 
 #[derive(TheMacro)]
 struct ChatBubble {
