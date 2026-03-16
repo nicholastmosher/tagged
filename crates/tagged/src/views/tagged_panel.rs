@@ -368,6 +368,6 @@ impl Panel for TaggedPanel {
     }
 
     fn activation_priority(&self) -> u32 {
-        0
+        10
     }
 }

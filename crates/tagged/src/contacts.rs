@@ -189,6 +189,6 @@ impl Panel for Contacts {
     }
 
     fn activation_priority(&self) -> u32 {
-        0
+        20
     }
 }

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-zed = { path = "../../../zed2/crates/zed" }
+zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
 
 # Third-party deps
 async-tungstenite = { version = "0.31.0", features = ["tokio", "tokio-rustls-manual-roots", "tokio-runtime"] }

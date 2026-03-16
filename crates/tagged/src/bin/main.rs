@@ -1,5 +1,5 @@
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
-use zed::unstable::gpui::Application;
+use zed::unstable::gpui_platform::application;
 
 #[tokio::main]
 async fn main() {
@@ -8,7 +8,8 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .with(EnvFilter::from_default_env())
         .init();
-    Application::new()
+
+    application()
         .add_plugins(zed::init)
         .add_plugins(tagged::init)
         .run();

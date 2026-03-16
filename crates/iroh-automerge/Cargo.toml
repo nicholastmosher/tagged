@@ -15,4 +15,4 @@ samod = { version = "0.5.1", features = ["tokio"] }
 tokio = "1.48.0"
 tokio-util = "0.7.17"
 tracing = "0.1.43"
-zed = { path = "../../../zed2/crates/zed" }
+zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }

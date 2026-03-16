@@ -50,13 +50,13 @@ pub fn init(cx: &mut App) {
                     ui.local_peer_id = Some(local_peer_id);
                     ui._stream_control = Some(control);
                 }
-            })?;
+            });
 
             while let Some(event) = swarm.next().await {
                 tracing::info!(?event, "Emitting SwarmEvent");
                 libp2p_ui.update(cx, |_ui, cx| {
                     cx.emit(event);
-                })?;
+                });
             }
             tracing::warn!("Ending Swarm task");
             anyhow::Ok(())

@@ -148,7 +148,7 @@ impl Render for CreateSpaceModal {
 
                                                             this_entity.update(cx, |this, _cx| {
                                                                 this.icon_path = Some(path.clone());
-                                                            })?;
+                                                            });
 
                                                             anyhow::Ok(())
                                                         }).detach_and_log_err(cx);

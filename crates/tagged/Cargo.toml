@@ -39,4 +39,4 @@ tracing = "0.1.43"
 ufotofu = { version = "0.8.8", features = ["compat_futures_io"] }
 willow25 = { path = "../../../../../codeberg.org/worm-blossom/willow_rs/willow25" }
 willow-api-derive = { path = "../willow-api-derive" }
-zed = { path = "../../../zed2/crates/zed" }
+zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
