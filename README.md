@@ -119,6 +119,20 @@ considering is this:
 - ooh, so I finished rebasing Zed and now it works to set a git ref dependency
   from here. Now it's not necessary to first clone the Zed fork to build this
 
+TODO
+
+- Persist entities to Willow
+- `Entity<T>` where `T: Willowize`
+- `impl<T> WillowHandle for Entity<T> where T: Willowize {}`
+
+```rust
+impl<T> WillowHandle for Entity<T>
+    where T: Willowize
+{ }
+```
+
+---
+
 > am
 
 - I should be able to plug in my USB drive and have everything I do synced to the
