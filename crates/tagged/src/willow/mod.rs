@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    io::{BufReader, Cursor},
     marker::PhantomData,
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -7,19 +8,28 @@ use std::{
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use ufotofu::{IntoProducer, ProducerExt, queues};
 use willow25::{
+    authorisation::McIngredients,
     entry::{
-        randomly_generate_communal_namespace, randomly_generate_owned_namespace,
+        Entry, randomly_generate_communal_namespace, randomly_generate_owned_namespace,
         randomly_generate_subspace,
     },
-    storage::MemoryStore,
+    path,
+    prelude::WriteCapability,
+    storage::{MemoryStore, Store},
 };
 use zed::unstable::{
     gpui::{AppContext, Entity, Global},
-    ui::{App, Context, SharedString},
+    ui::{App, SharedString},
 };
 
-use crate::state::{profile::Profile, space::Space};
+use crate::{
+    state::{profile::Profile, space::Space},
+    willow::model::Willowize,
+};
+
+pub mod model;
 
 pub fn init(cx: &mut App) {
     let store_path = zed::unstable::paths::data_dir();
@@ -132,6 +142,68 @@ impl Willow {
         let state = self.state.lock().expect("lock WillowState");
         state.spaces.clone()
     }
+
+    // Todo
+    // - this needs to be a friendly easy api
+    // - input is the user's entity of the object?
+    //   - Need to offer to convert from Entity to value?
+    //   - Or take callbacks that say how to manipulate the object
+
+    // trait Willowize: 'static + JsonSchema + Serialize + for<'de> Deserialize<'de> {}
+    fn todo_write_to_willow<T: Willowize>(&self, input: &Entity<T>, cx: &mut App) {
+        let value = input.read(cx);
+        let serialized = serde_json::to_string(value).unwrap();
+        let len = serialized.len();
+        let producer = serialized
+            .into_bytes()
+            .into_producer()
+            .to_buffered(queues::new_fixed(len));
+
+        cx.spawn(async move |cx| {
+            let entry = Entry::builder()
+                // What is the context of this call? How do we know chich namespace or subspace IDs to use?
+                .namespace_id(todo!())
+                .subspace_id(todo!())
+                .path(path!("/todo/path"))
+                .now()
+                .unwrap()
+                .payload(&serialized)
+                .build()
+                .unwrap();
+            let write_capability = todo!();
+            let secret = todo!();
+            let authorized_entry = entry
+                .into_authorised_entry(write_capability, secret)
+                .unwrap();
+
+            let reader = BufReader::new(Cursor::new(serialized));
+
+            let keypair = todo!();
+            let user_key = todo!();
+            let secret = todo!();
+            let capability = WriteCapability::new_owned(keypair, user_key);
+            let ingredients = McIngredients::new(capability, secret).unwrap();
+
+            let state = cx.willow().state.clone();
+            let mut state = state.lock().unwrap();
+            let maybe_written = state
+                .store
+                .create_entry(
+                    //
+                    &authorized_entry,
+                    producer,
+                    todo!(),
+                    &ingredients,
+                )
+                .await
+                .unwrap();
+
+            anyhow::Ok(())
+        })
+        .detach_and_log_err(cx);
+
+        todo!()
+    }
 }
 
 impl WillowState {
@@ -159,13 +231,15 @@ impl WillowState {
     }
 }
 
+/// Extension trait to add a convenient `cx.willow()` API for Willow
+// Make WillowExt<T> to allow impls with third-party marker types?
 pub trait WillowExt {
     fn willow(&mut self) -> Willow;
 }
 
-impl WillowExt for App {
+impl<C: AppContext> WillowExt for C {
     fn willow(&mut self) -> Willow {
-        self.global::<GlobalWillow>().0.clone()
+        self.read_global::<GlobalWillow, _>(|it, _cx| it.0.clone())
     }
 }
 

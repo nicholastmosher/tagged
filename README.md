@@ -103,6 +103,11 @@ considering is this:
 > I was going for a hash-looking thing, and `t`s for "tagged", and this came out
 > also looking to me like DNA if you squint which is dope so for now I'm keeping it
 
+# 2026 March 18
+
+- All rebased and ready to start the next thing
+- Continue working on read/write to Willow MemoryStore
+
 # 2026 March 16
 
 > pm
