@@ -1,12 +1,5 @@
-use std::{
-    collections::HashMap,
-    marker::PhantomData,
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
+use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
 
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 use willow25::{
     entry::{
         Entry, randomly_generate_communal_namespace, randomly_generate_owned_namespace,
@@ -27,6 +20,7 @@ use crate::{
 };
 
 pub mod model;
+pub mod tasks;
 
 pub fn init(cx: &mut App) {
     let store_path = zed::unstable::paths::data_dir();
@@ -46,7 +40,8 @@ struct GlobalWillow(Willow);
 #[derive(Clone)]
 pub struct Willow {
     /// Local state per Willow instance
-    state: Arc<Mutex<WillowState>>,
+    // state: Arc<Mutex<WillowState>>,
+    state: Rc<RefCell<WillowState>>,
 }
 
 /// State of a Willow instance. Probably 1:1 with a "store" on disk at a given path
@@ -68,7 +63,8 @@ struct WillowState {
 impl Willow {
     fn new(store_path: impl Into<PathBuf>, cx: &mut App) -> Self {
         // let state = cx.new(|cx| WillowState::new(store_path.into(), cx));
-        let state = Arc::new(Mutex::new(WillowState::new(store_path.into())));
+        // let state = Arc::new(Mutex::new(WillowState::new(store_path.into())));
+        let state = Rc::new(RefCell::new(WillowState::new(store_path.into())));
         Self { state }
     }
 
@@ -86,7 +82,8 @@ impl Willow {
         });
 
         {
-            let mut state = self.state.lock().expect("lock WillowState");
+            // let mut state = self.state.lock().expect("lock WillowState");
+            let mut state = self.state.borrow_mut();
             state.profiles.push(profile.clone());
             if state.active_profile.is_none() {
                 state.active_profile = Some(profile.clone());
@@ -102,7 +99,8 @@ impl Willow {
         let space = cx.new(move |cx| Space::new(name, ns_secret, cx));
 
         {
-            let mut state = self.state.lock().expect("lock WillowState");
+            // let mut state = self.state.lock().expect("lock WillowState");
+            let mut state = self.state.borrow_mut();
             state.spaces.push(space.clone());
         }
 
@@ -119,7 +117,8 @@ impl Willow {
         let space = cx.new(move |cx| Space::new(name, ns_secret, cx));
 
         {
-            let mut state = self.state.lock().expect("lock WillowState");
+            // let mut state = self.state.lock().expect("lock WillowState");
+            let mut state = self.state.borrow_mut();
             state.spaces.push(space.clone());
         }
 
@@ -127,27 +126,42 @@ impl Willow {
     }
 
     pub fn active_profile(&self) -> Option<Entity<Profile>> {
-        let state = self.state.lock().expect("lock WillowState");
+        // let state = self.state.lock().expect("lock WillowState");
+        let state = self.state.borrow_mut();
         state.active_profile.clone()
     }
 
-    pub fn active_profile_(&self, cx: &mut App) -> Option<Entity<Profile>> {
-        let state = self.state.lock().expect("lock WillowState");
-        state.active_profile.clone()
+    pub fn active_profile_<'a>(&self, cx: &'a mut App) -> Option<&'a Profile> {
+        // let state = self.state.lock().expect("lock WillowState");
+        let state = self.state.borrow_mut();
+        let active_profile_entity = state.active_profile.clone()?;
+        let profile = active_profile_entity.read(cx);
+        Some(profile)
     }
 
     pub fn profiles(&self) -> Vec<Entity<Profile>> {
-        let state = self.state.lock().expect("lock WillowState");
+        // let state = self.state.lock().expect("lock WillowState");
+        let state = self.state.borrow_mut();
         state.profiles.clone()
     }
 
     pub fn active_space(&self) -> Option<Entity<Space>> {
-        let state = self.state.lock().expect("lock WillowState");
+        // let state = self.state.lock().expect("lock WillowState");
+        let state = self.state.borrow_mut();
         state.active_space.clone()
     }
 
+    pub fn active_space_<'a>(&self, cx: &'a mut App) -> Option<&'a Space> {
+        // let state = self.state.lock().expect("lock WillowState");
+        let state = self.state.borrow_mut();
+        let active_space_entity = state.active_space.clone()?;
+        let space = active_space_entity.read(cx);
+        Some(space)
+    }
+
     pub fn spaces(&self) -> Vec<Entity<Space>> {
-        let state = self.state.lock().expect("lock WillowState");
+        // let state = self.state.lock().expect("lock WillowState");
+        let state = self.state.borrow_mut();
         state.spaces.clone()
     }
 
@@ -162,40 +176,74 @@ impl Willow {
         let value = input.read(cx);
         let serialized = serde_json::to_string(value).unwrap();
 
-        cx.spawn(async move |cx| {
-            // TODO: Use explicit parameters rather than "active" context?
-            let profile_entity = cx.willow().active_profile().unwrap();
-            let (sub_id, sub_key) = cx.read_entity(&profile_entity, |it, cx| it.parts());
-            let space_entity = cx.willow().active_space().unwrap();
-            let (ns_id, ns_key) = cx.read_entity(&space_entity, |it, cx| it.parts());
+        // TODO: Use explicit parameters rather than "active" context?
+        let profile_entity = cx.willow().active_profile().unwrap();
+        let (sub_id, sub_key) = cx.read_entity(&profile_entity, |it, cx| it.parts());
+        let space_entity = cx.willow().active_space().unwrap();
+        let (ns_id, ns_key) = cx.read_entity(&space_entity, |it, cx| it.parts());
 
-            let entry = Entry::builder()
-                // What is the context of this call? How do we know chich namespace or subspace IDs to use?
-                .namespace_id(ns_id)
-                .subspace_id(sub_id.clone())
-                .path(path!("/todo/path"))
-                .now()
-                .unwrap()
-                .payload(&serialized)
-                .build()
-                .unwrap();
-            let write_capability = WriteCapability::new_owned(&ns_key, sub_id);
+        let entry = Entry::builder()
+            // What is the context of this call? How do we know chich namespace or subspace IDs to use?
+            .namespace_id(ns_id)
+            .subspace_id(sub_id.clone())
+            .path(path!("/todo/path"))
+            .now()
+            .unwrap()
+            .payload(&serialized)
+            .build()
+            .unwrap();
+        let write_capability = WriteCapability::new_owned(&ns_key, sub_id);
 
-            // Entry with content serialized from the given Entity
-            let authorized_entry = entry
-                .into_authorised_entry(&write_capability, &sub_key)
-                .unwrap();
+        // Entry with content serialized from the given Entity
+        let authorized_entry = entry
+            .into_authorised_entry(&write_capability, &sub_key)
+            .unwrap();
 
-            {
-                let state = cx.willow().state.clone();
-                let mut state = state.lock().unwrap();
-                let write_visible = state.store.insert_entry(authorized_entry).await?;
+        let willow = cx.willow();
+
+        // Foreground: no Sync requirement, but shouldn't do heavy lifting
+        cx.spawn({
+            let authorized_entry = authorized_entry.clone();
+            async move |cx| {
+                {
+                    let state = cx.willow().state.clone();
+                    // let mut state = state.lock().unwrap();
+                    let mut state = state.borrow_mut();
+                    let write_visible = state.store.insert_entry(authorized_entry).await?;
+                }
+
+                anyhow::Ok(())
             }
-
-            anyhow::Ok(())
         })
         .detach_and_log_err(cx);
 
+        // // Background: Requires Sync
+        // let _task = cx.background_spawn({
+        //     let authorized_entry = authorized_entry.clone();
+        //     async move {
+        //         let willow = willow;
+        //         let state = willow.state.clone();
+        //         let mut state = state.borrow_mut();
+        //         let write_visible = state.store.insert_entry(authorized_entry).await?;
+        //         //
+        //         anyhow::Ok(())
+        //     }
+        // });
+    }
+
+    // Memory -> Willow: Entity<T>
+    // Willow -> Memory: WillowEntity<T> ? To encode space/subspace/path?
+    fn todo_read_from_willow<T: Willowize>(&self, cx: &mut App) -> anyhow::Result<T> {
+        {
+            let state = cx.willow().state.clone();
+            // let mut state = state.lock().unwrap();
+            let mut state = state.borrow_mut();
+            let space = self.active_space_(cx).unwrap();
+            let ns_id = space.namespace_id();
+            // let it = state.store.get_entry(&ns_id, key, expected_digest, &..);
+        }
+
+        //
         todo!()
     }
 }
