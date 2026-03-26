@@ -12,20 +12,26 @@ use std::{
 use anyhow::Result;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use tokio::task::JoinHandle;
 use zed::unstable::{
     db::smol::stream::{Stream, StreamExt as _, empty},
     gpui::{self, Action, actions},
+    ui::{InteractiveElement, IntoElement, StatefulInteractiveElement},
 };
+
+use crate::willow::WillowExt;
 
 /// External API, handle to send/receive events to the spawned WillowTask
 pub struct WillowTask {
     //
+    tokio_handle: JoinHandle<()>,
 }
 
 /// Internal API, available to be used by task implementors
 pub struct WillowTaskContext {
     //
-    handlers: HashMap<TypeId, Arc<dyn Handler + Send + Sync>>,
+    // handlers: HashMap<TypeId, Arc<dyn Handler + Send + Sync>>,
+    handlers: HashMap<TypeId, Vec<Box<dyn Fn(&mut Self, &dyn Action) + Send + 'static>>>,
 }
 
 /// All incoming events are variants of this input event
@@ -45,16 +51,37 @@ pub trait WillowTaskEvent: Any {
 }
 
 impl WillowTask {
-    pub fn spawn() {
-        //
+    pub fn spawn() -> Self {
         let future = WillowTaskContext::new().run();
         let tokio_handle = tokio::spawn(future);
+        Self {
+            //
+            tokio_handle,
+        }
     }
 }
 
 impl WillowTaskContext {
-    pub fn new() -> Self {
-        todo!()
+    fn new() -> Self {
+        Self {
+            handlers: Default::default(),
+        }
+    }
+
+    fn with_handler<T: Action>(mut self, f: impl 'static + Send + Fn(&mut Self, &T)) -> Self {
+        // self.state.entry(TypeId::of::<T>()).or_insert(default)
+        let action_handler = move |this: &mut Self, action: &dyn Action| {
+            if let Some(it) = action.as_any().downcast_ref::<T>() {
+                f(this, it)
+            }
+        };
+
+        self.handlers
+            .entry(TypeId::of::<T>())
+            .or_insert_with(Vec::new)
+            .push(Box::new(action_handler));
+
+        self
     }
 
     fn create_task_stream() -> impl 'static + Stream<Item = WillowTaskInput> {
@@ -121,7 +148,7 @@ struct AsyncCxHandle {
 impl AsyncCx {
     //
 
-    fn add_handler<T: Action>(&mut self, f: impl 'static + Fn(&mut Self, &T)) {
+    fn with_handler<T: Action>(&mut self, f: impl 'static + Fn(&mut Self, &T)) {
         // self.state.entry(TypeId::of::<T>()).or_insert(default)
         let action_handler = move |this: &mut Self, action: &dyn Action| {
             if let Some(it) = action.as_any().downcast_ref::<T>() {
@@ -150,8 +177,76 @@ struct BarAction {
     name: String,
 }
 
-fn it(mut it: AsyncCx) {
-    it.add_handler(|this, action: &FooAction| {
+// Usage exercise
+//
+// - The user wants to save a file
+// - We have the Space and Profile we want to write to
+// - We have the Write Capability needed to save
+// - The user completes the UI flow to initiate file save
+// - UI dispatches save action to async engine
+// - Async engine dispatches "Save" event to the appropriate handler
+//   - Assumption: The correct handlers have been installed. When does that happen?
+//   - At initialization of the async engine? Can handlers be installed dyanmically?
+//   - I think Willow handlers would be known statically, e.g. read/write a file
+// - Save event: Dispatched on a handler task, which is expected
+//   to emit an async event back to the engine as confirmation of save?
+//
+mod usage {
+    use schemars::JsonSchema;
+    use serde::{Deserialize, Serialize};
+    use zed::unstable::{
+        gpui::{self, Action, AppContext, Global},
+        ui::{InteractiveElement as _, IntoElement, StatefulInteractiveElement as _},
+    };
+
+    use crate::willow::tasks::willow_task::{AsyncCx, FooAction};
+
+    impl Global for GlobalWillow {}
+    struct GlobalWillow(Willow);
+    #[derive(Clone)]
+    struct Willow {
         //
-    });
+    }
+    impl Willow {
+        pub fn dispatch<A: Action>(&self, action: A) {
+            //
+        }
+    }
+
+    #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Action)]
+    struct WriteEntry {
+        //
+        name: String,
+    }
+
+    /// Extension trait to add a convenient `cx.willow()` API for Willow
+    // Make WillowExt<T> to allow impls with third-party marker types?
+    pub trait WillowExt {
+        fn willow(&mut self) -> Willow;
+    }
+
+    impl<C: AppContext> WillowExt for C {
+        fn willow(&mut self) -> Willow {
+            self.read_global::<GlobalWillow, _>(|it, _cx| it.0.clone())
+        }
+    }
+
+    fn ui_render(window: &mut gpui::Window, cx: &mut gpui::App) -> impl IntoElement {
+        gpui::div()
+            //
+            .id("button")
+            .on_click(|e, window, cx| {
+                //
+                let action = WriteEntry {
+                    name: "Write".to_string(),
+                };
+                cx.willow().dispatch(action);
+            })
+    }
+
+    async fn bg_async(mut it: AsyncCx) {
+        it.with_handler(|this, action: &FooAction| {
+            //
+        });
+    }
 }

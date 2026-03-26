@@ -103,6 +103,55 @@ considering is this:
 > I was going for a hash-looking thing, and `t`s for "tagged", and this came out
 > also looking to me like DNA if you squint which is dope so for now I'm keeping it
 
+# 2026 March 25
+
+- Has it been six days?
+- Tempted to table the async event streaming control plane idea until later,
+  but it'd be so cool to get something like that running (and be useful)
+- Oh, one thing the event-stream-processing design makes easy to do is make
+  an audit log of what's happened in the async context's world.
+
+- brain says: A source-portable application, where an "instance" is a full Zed instance
+  sitting on top of its own source code repository. That repository is a "distro" of
+  Zed with a particular composition of plugins.
+- Integrate with Steel? to give dynamic state manipulation capabilities to Zed/GPUI
+- Scripts for custom dynamic behavior just sit in the source repo
+- Custom executable format, which encodes an in-exe FS which can host a git repo
+  of the program's own source code? Bundle rustc in the executable as well so it
+  can edit and recompile itself. Include A/B partitioning to recover failed builds?
+  - Yes massive but I'm dreaming here
+- Damn this is starting to sound like an OS. if only my dumbass took CS instead of SE
+- Way off track, back to async engine
+
+- Imagine everything about the computer is addressable and auditable. Thinking back to
+  a streaming-engine audit-log, let's really try to think of auditability as first-class.
+- Like, as first-class as a file browser. Need a name for "Events", but have a designation
+  of audit-events which is presented as natural to the user.
+- Looking at a timeline rendering of the audit log should evoke an impression of officiality,
+  something to be trusted.
+- Significant audit events may include adding a contact(/friend?), signing a capability,
+  syncing with a given peer, receiving a capability, creation/editing/deletion of a file
+- Audit log should present a summarized report of all activity in a given day/period
+- Make audit events taggable, so they can be queried over or notified about
+
+- I think a very special opportunity to be had while creating a new application platform
+  is to design/discover new ways to apply composition to our data in ways that haven't been
+  possible before.
+- For example, an object is just a set of fields, and a directory is just a set of files
+  and subdirectories. But there's no universal/composable way to "address" a field in an
+  encoded object or a file on a filesystem at the same time.
+- Imagine a meta-object that was overlaid onto the filesystem. Each "meta-field" of the
+  meta-object is just a reference to a file on the filesystem. The meta-field could also
+  describe the schema of the encoded data we expect to find at the referenced file. A unified
+  compositional behavior would be to allow querying views over sets of files and object fields together.
+- Imagine having a canvas playground, and you could add widgets like a metrics dashboard,
+  but the values being displayed are projections to particular files or even fields in object
+  files (e.g. json).
+  - Like? `willow://space/profile/contacts/myfriend/status.json#.online` evaluates to the field
+    value of `.online` in the designated file
+  - In a dynamic canvas scenario, it'd be possible to build a custom HUD of sorts on a canvas,
+    which displays a live representation of all the data queried from your accessible spaces
+
 # 2026 March 19
 
 - Damn, I need to think about synchronization now, it can't wait.
