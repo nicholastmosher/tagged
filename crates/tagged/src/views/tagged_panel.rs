@@ -20,7 +20,7 @@ use zed::unstable::{
 };
 
 use crate::{
-    components::profile_bar::ProfileBar,
+    components::{profile_bar::ProfileBar, space_header::SpaceHeader},
     views::{create_profile_modal::CreateProfileModal, create_space_modal::CreateSpaceModal},
     willow::WillowExt as _,
 };
@@ -118,7 +118,7 @@ impl TaggedPanel {
             //
             .p_1()
             .map(|el| {
-                match cx.willow().active_profile() {
+                match cx.willow().active_profile_entity() {
                     None => {
                         //
                         el
@@ -232,6 +232,12 @@ impl TaggedPanel {
                         }
                     })
                     .tooltip(Tooltip::text(space.read(cx).name()))
+                    .on_click(cx.listener({
+                        let space = space.clone();
+                        move |_this, _e, _window, cx| {
+                            cx.willow().set_active_space(space.clone());
+                        }
+                    }))
                     .child(
                         //
                         img(space
@@ -252,8 +258,8 @@ impl TaggedPanel {
             .child(div().flex_grow())
             .child({
                 // Bounce when empty to prompt user to create a space
-                let new_space_bounces =
-                    cx.willow().active_profile().is_some() && cx.willow().spaces().is_empty();
+                let new_space_bounces = cx.willow().active_profile_entity().is_some()
+                    && cx.willow().spaces().is_empty();
 
                 div()
                     //
@@ -307,11 +313,56 @@ impl TaggedPanel {
     ) -> impl IntoElement {
         // Container, no flex
         v_flex()
-            // .debug()
+            .debug()
             .bg(cx.theme().colors().editor_background)
             //
             .p_2()
             .size_full()
+            // Header
+            .when_some(cx.willow().active_space_entity(), |el, space| {
+                //
+                el
+                    //
+                    .child(SpaceHeader::new(space))
+            })
+        // .child(
+        //     //
+        //     h_flex()
+        //         //
+        //         .p_2()
+        //         .text_lg()
+        //         .child(
+        //             h_flex()
+        //                 .id("header-dropdown")
+        //                 .hover(|style| {
+        //                     style
+        //                         //
+        //                         .bg(cx.theme().colors().ghost_element_hover)
+        //                 })
+        //                 .active(|style| {
+        //                     style
+        //                         //
+        //                         .bg(cx.theme().colors().ghost_element_active)
+        //                 })
+        //                 //
+        //                 .p_2()
+        //                 .rounded_md()
+        //                 .child("Header")
+        //                 .child(Icon::new(IconName::ChevronDown)),
+        //         )
+        //         .child(div().flex_grow())
+        //         .child(
+        //             // Button
+        //             div()
+        //                 //
+        //                 .child(
+        //                     //
+        //                     img(PathBuf::from(".assets/create-profile.svg"))
+        //                         //
+        //                         .size(px(24.)),
+        //                 ),
+        //         ),
+        // )
     }
 }
 

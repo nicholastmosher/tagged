@@ -128,13 +128,13 @@ impl Willow {
         space
     }
 
-    pub fn active_profile(&self) -> Option<Entity<Profile>> {
+    pub fn active_profile_entity(&self) -> Option<Entity<Profile>> {
         // let state = self.state.lock().expect("lock WillowState");
         let state = self.state.borrow_mut();
         state.active_profile.clone()
     }
 
-    pub fn active_profile_<'a>(&self, cx: &'a mut App) -> Option<&'a Profile> {
+    pub fn active_profile<'a>(&self, cx: &'a mut App) -> Option<&'a Profile> {
         // let state = self.state.lock().expect("lock WillowState");
         let state = self.state.borrow_mut();
         let active_profile_entity = state.active_profile.clone()?;
@@ -148,13 +148,18 @@ impl Willow {
         state.profiles.clone()
     }
 
-    pub fn active_space(&self) -> Option<Entity<Space>> {
+    pub fn active_space_entity(&self) -> Option<Entity<Space>> {
         // let state = self.state.lock().expect("lock WillowState");
         let state = self.state.borrow_mut();
         state.active_space.clone()
     }
 
-    pub fn active_space_<'a>(&self, cx: &'a mut App) -> Option<&'a Space> {
+    pub fn set_active_space(&self, space: Entity<Space>) {
+        let mut state = self.state.borrow_mut();
+        state.active_space = Some(space);
+    }
+
+    pub fn active_space<'a>(&self, cx: &'a mut App) -> Option<&'a Space> {
         // let state = self.state.lock().expect("lock WillowState");
         let state = self.state.borrow_mut();
         let active_space_entity = state.active_space.clone()?;
@@ -195,9 +200,9 @@ impl Willow {
         let serialized = serde_json::to_string(value).unwrap();
 
         // TODO: Use explicit parameters rather than "active" context?
-        let profile_entity = cx.willow().active_profile().unwrap();
+        let profile_entity = cx.willow().active_profile_entity().unwrap();
         let (sub_id, sub_key) = cx.read_entity(&profile_entity, |it, cx| it.parts());
-        let space_entity = cx.willow().active_space().unwrap();
+        let space_entity = cx.willow().active_space_entity().unwrap();
         let (ns_id, ns_key) = cx.read_entity(&space_entity, |it, cx| it.parts());
 
         let entry = Entry::builder()
@@ -256,7 +261,7 @@ impl Willow {
             let state = cx.willow().state.clone();
             // let mut state = state.lock().unwrap();
             let mut state = state.borrow_mut();
-            let space = self.active_space_(cx).unwrap();
+            let space = self.active_space(cx).unwrap();
             let ns_id = space.namespace_id();
             // let it = state.store.get_entry(&ns_id, key, expected_digest, &..);
         }

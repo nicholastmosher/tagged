@@ -24,9 +24,9 @@ pub trait EntryHandle {
 impl<T: Willowize> EntryHandle for Entity<T> {
     fn load(&self, cx: &mut App) {
         // TODO: Use explicit parameters rather than "active" context?
-        let profile_entity = cx.willow().active_profile().unwrap();
+        let profile_entity = cx.willow().active_profile_entity().unwrap();
         let (sub_id, sub_key) = cx.read_entity(&profile_entity, |it, cx| it.parts());
-        let space_entity = cx.willow().active_space().unwrap();
+        let space_entity = cx.willow().active_space_entity().unwrap();
         let (ns_id, ns_key) = cx.read_entity(&space_entity, |it, cx| it.parts());
 
         // let maybe_entry = cx
@@ -53,9 +53,9 @@ impl<T: Willowize> EntryHandle for Entity<T> {
         let serialized = serde_json::to_string(value).unwrap();
 
         // TODO: Use explicit parameters rather than "active" context?
-        let profile_entity = cx.willow().active_profile().unwrap();
+        let profile_entity = cx.willow().active_profile_entity().unwrap();
         let (sub_id, sub_key) = cx.read_entity(&profile_entity, |it, cx| it.parts());
-        let space_entity = cx.willow().active_space().unwrap();
+        let space_entity = cx.willow().active_space_entity().unwrap();
         let (ns_id, ns_key) = cx.read_entity(&space_entity, |it, cx| it.parts());
 
         let entry = Entry::builder()
