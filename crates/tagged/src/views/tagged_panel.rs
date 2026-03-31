@@ -21,6 +21,7 @@ use zed::unstable::{
 
 use crate::{
     components::{profile_bar::ProfileBar, space_header::SpaceHeader},
+    state::space::Space,
     views::{create_profile_modal::CreateProfileModal, create_space_modal::CreateSpaceModal},
     willow::WillowExt as _,
 };
@@ -45,14 +46,21 @@ pub fn init(cx: &mut App) {
 }
 
 pub struct TaggedPanel {
+    content: PanelContent,
     focus_handle: FocusHandle,
     width: Option<Pixels>,
     workspace: Entity<Workspace>,
 }
 
+pub enum PanelContent {
+    Home,
+    Space(Entity<Space>),
+}
+
 impl TaggedPanel {
     pub fn new(workspace: Entity<Workspace>, _window: &mut Window, cx: &mut Context<Self>) -> Self {
         Self {
+            content: PanelContent::Home,
             focus_handle: cx.focus_handle(),
             width: None,
             workspace,
@@ -101,7 +109,7 @@ impl TaggedPanel {
                     // Active space content
                     .child(
                         //
-                        self.render_active_space(window, cx),
+                        self.render_panel_content(window, cx),
                     ),
             )
             // Profile bar/selector
@@ -210,6 +218,10 @@ impl TaggedPanel {
                     .id("home-icon")
                     .hover(|style| style.opacity(0.6))
                     .active(|style| style.bg(cx.theme().colors().ghost_element_active))
+                    .on_click(cx.listener(|this, _e, _window, _cx| {
+                        this.content = PanelContent::Home;
+                    }))
+                    //
                     .rounded_xl()
                     .child(
                         //
@@ -234,8 +246,9 @@ impl TaggedPanel {
                     .tooltip(Tooltip::text(space.read(cx).name()))
                     .on_click(cx.listener({
                         let space = space.clone();
-                        move |_this, _e, _window, cx| {
+                        move |this, _e, _window, cx| {
                             cx.willow().set_active_space(space.clone());
+                            this.content = PanelContent::Space(space.clone());
                         }
                     }))
                     .child(
@@ -306,8 +319,35 @@ impl TaggedPanel {
     }
 
     /// The area above the Profiles bar and right of the Spaces bar
-    fn render_active_space(
+    fn render_panel_content(
         &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        match &self.content {
+            PanelContent::Home => {
+                //
+                self.render_content_home(window, cx).into_any_element()
+            }
+            PanelContent::Space(space) => {
+                //
+                self.render_content_space(space.clone(), window, cx)
+                    .into_any_element()
+            }
+        }
+    }
+
+    fn render_content_home(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+    }
+
+    fn render_content_space(
+        &mut self,
+        space: Entity<Space>,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
@@ -319,50 +359,7 @@ impl TaggedPanel {
             .p_2()
             .size_full()
             // Header
-            .when_some(cx.willow().active_space_entity(), |el, space| {
-                //
-                el
-                    //
-                    .child(SpaceHeader::new(space))
-            })
-        // .child(
-        //     //
-        //     h_flex()
-        //         //
-        //         .p_2()
-        //         .text_lg()
-        //         .child(
-        //             h_flex()
-        //                 .id("header-dropdown")
-        //                 .hover(|style| {
-        //                     style
-        //                         //
-        //                         .bg(cx.theme().colors().ghost_element_hover)
-        //                 })
-        //                 .active(|style| {
-        //                     style
-        //                         //
-        //                         .bg(cx.theme().colors().ghost_element_active)
-        //                 })
-        //                 //
-        //                 .p_2()
-        //                 .rounded_md()
-        //                 .child("Header")
-        //                 .child(Icon::new(IconName::ChevronDown)),
-        //         )
-        //         .child(div().flex_grow())
-        //         .child(
-        //             // Button
-        //             div()
-        //                 //
-        //                 .child(
-        //                     //
-        //                     img(PathBuf::from(".assets/create-profile.svg"))
-        //                         //
-        //                         .size(px(24.)),
-        //                 ),
-        //         ),
-        // )
+            .child(SpaceHeader::new(space))
     }
 }
 

@@ -1,4 +1,4 @@
-use iroh::EndpointAddr;
+use ::iroh::EndpointAddr;
 use iroh_gossip::TopicId;
 use rand::Rng as _;
 use serde::{Deserialize, Serialize};
@@ -10,6 +10,7 @@ use zed::unstable::{
 mod chat;
 mod components;
 mod contacts;
+mod iroh;
 // mod iroh_automerge_chat_ui;
 // mod iroh_panel_ui;
 // mod iroh_topic_chat_ui;
@@ -22,6 +23,7 @@ mod willow;
 pub fn init(cx: &mut App) {
     components::init(cx);
     contacts::init(cx);
+    iroh::init(cx);
     // iroh_panel_ui::init(cx);
     // iroh_topic_chat_ui::init(cx);
     // object_widget::init(cx);

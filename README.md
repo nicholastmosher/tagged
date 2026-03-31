@@ -103,6 +103,25 @@ considering is this:
 > I was going for a hash-looking thing, and `t`s for "tagged", and this came out
 > also looking to me like DNA if you squint which is dope so for now I'm keeping it
 
+# 2026 March 30
+
+- Need a visual win, so I want to prototype the UI for making p2p connections
+- Allowed to be Iroh-specific, can generalize later
+- Need ability to create Contacts. A Contact is like a remote representation of a Profile
+- Generate an Endpoint ID for this device. In what way does this associate with a given Profile?
+- Allow dynamically instantiating more than one Iroh Endpoint? Like an Entity, but for p2p?
+  - Was thinking to prevent association of Profiles due to sharing an Endpoint. Probably tricky
+- Connections should be global, not scoped to a Space or Profile
+- Should put under the top-level icon button?
+
+User flow: Connecting with a friend's device for the first time, adding as a contact
+
+- Assumption: Both users are online and have a side channel like Signal to paste a ticket
+- One user clicks to generate a ticket, copies it, sends to to the other user
+- Second user receives the ticket and pastes it into their app.
+- UI should show connection in progress, with status
+- Display protocols that have successfully exchanged?
+
 # 2026 March 26
 
 Practical TODOs:

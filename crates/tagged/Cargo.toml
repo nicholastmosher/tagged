@@ -40,3 +40,4 @@ ufotofu = { version = "0.8.8", features = ["compat_futures_io"] }
 willow25 = { path = "../../../../../codeberg.org/worm-blossom/willow_rs/willow25" }
 willow-api-derive = { path = "../willow-api-derive" }
 zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
+futures-concurrency = "7.7.1"
