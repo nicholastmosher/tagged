@@ -40,8 +40,7 @@ pub trait DebugViewExt: Styled {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct Ticket {
-    topic_id: TopicId,
+pub struct Ticket {
     endpoints: Vec<EndpointAddr>,
 }
 

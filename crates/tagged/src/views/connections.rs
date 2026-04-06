@@ -5,18 +5,21 @@
 // - Allowing adding new peers
 // - Allowing removing peers
 
-use tracing::warn;
+use anyhow::anyhow;
+use iroh::EndpointAddr;
+use tracing::{info, warn};
 use zed::unstable::{
-    gpui::{AppContext as _, ClipboardItem, Entity},
+    gpui::{AppContext as _, ClipboardItem, Entity, KeyDownEvent},
     ui::{
         ActiveTheme as _, App, Context, FluentBuilder, Icon, IconName, InteractiveElement as _,
         IntoElement, ParentElement as _, Render, StatefulInteractiveElement as _, Styled, Tooltip,
         Window, div, h_flex, v_flex,
     },
     ui_input::InputField,
+    util::ResultExt as _,
 };
 
-use crate::iroh::IrohExt;
+use crate::{Ticket, iroh::IrohExt};
 
 pub fn init(cx: &mut App) {
     //
@@ -78,9 +81,10 @@ impl Render for ConnectionsUi {
                                     warn!("Iroh Endpoint not available");
                                     return;
                                 };
-                                cx.write_to_clipboard(ClipboardItem::new_string(
-                                    endpoint_id.to_string(),
-                                ));
+                                let endpoints = vec![EndpointAddr::from_parts(endpoint_id, [])];
+                                let ticket = Ticket { endpoints };
+                                let ticket_text = ticket.to_string();
+                                cx.write_to_clipboard(ClipboardItem::new_string(ticket_text));
                             }))
                             //
                             .p_1()
@@ -95,6 +99,27 @@ impl Render for ConnectionsUi {
                 div()
                     //
                     .p_2()
+                    .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
+                        info!(?e, "KEYDOWN");
+
+                        if e.keystroke.key == "enter" {
+                            info!("Do the thing on ENTER");
+
+                            let ticket_text = this.input_ticket.read(cx).text(cx);
+                            let ticket = ticket_text
+                                .parse::<Ticket>()
+                                .map_err(|e| anyhow!("failed to parse Ticket: {e}"))
+                                .log_err();
+                            let Some(ticket) = ticket else {
+                                return;
+                            };
+                            let Some(endpoint_addr) = ticket.endpoints.get(0) else {
+                                return;
+                            };
+
+                            cx.iroh().connect(cx, endpoint_addr.clone());
+                        }
+                    }))
                     .child(self.input_ticket.clone()),
             )
             .child(

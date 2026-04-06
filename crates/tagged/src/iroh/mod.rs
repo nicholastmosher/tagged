@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use dashmap::DashMap;
 use iroh::{
-    Endpoint, EndpointId,
+    Endpoint, EndpointAddr, EndpointId,
     protocol::{ProtocolHandler, Router},
 };
+use tracing::info;
 use zed::unstable::{
     gpui::{AppContext, Global},
     ui::App,
@@ -91,6 +92,26 @@ impl Iroh {
             .collect::<Vec<_>>();
 
         Some(remote_peers)
+    }
+
+    pub fn connect(&self, cx: &mut App, addr: impl Into<EndpointAddr>) {
+        let Some(state) = &self.state else {
+            return;
+        };
+
+        let addr = addr.into();
+        cx.spawn({
+            let endpoint = state.endpoint.clone();
+            async move |cx| {
+                let connection = endpoint.connect(addr, Protocol::ALPN).await?;
+
+                // TODO handle outbound connection
+                info!("Connection established! TODO");
+
+                anyhow::Ok(())
+            }
+        })
+        .detach_and_log_err(cx);
     }
 }
 
