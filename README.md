@@ -103,6 +103,234 @@ considering is this:
 > I was going for a hash-looking thing, and `t`s for "tagged", and this came out
 > also looking to me like DNA if you squint which is dope so for now I'm keeping it
 
+# 2026 April 5
+
+Giving a seminar about this project at CSH! Need to plan it out:
+
+- I think I'll just write the content I'd typically put in slides directly in the readme
+- Want to make it hands-on, get folks building the project quickly
+  - I should use a VM to check what dependencies are needed from scratch
+- Have an exercise already planned out, such as making a calendar UI
+
+# CSH Seminar: First-class plugins for GPUI and Zed, Vision for Tagged
+
+Here's the pitch: GPUI is _really good_ and hella fun to program with, and its
+design is elegant and pragmatic and modular and extensible. With some small tweaks,
+GPUI allows for composing plugins into a single application.
+
+## Getting Started
+
+I wanna dive right in, and I'll ramble along the way. Create a new rust project with
+cargo and add these dependencies:
+
+```
+$ cargo new --lib csh-demo
+$ cd csh-demo
+```
+
+In Cargo.toml, add a git dependency to my fork of Zed:
+
+```toml
+[dependencies]
+zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
+```
+
+Create a `src/bin/main.rs` file and paste this for its content:
+
+```
+$ mkdir -p src/bin
+$ touch src/bin/main.rs
+```
+
+```rust
+use zed::unstable::gpui_platform::application;
+
+fn main() {
+    application()
+        .add_plugins(zed::init)
+        .add_plugins(csh_demo::init) // use the lib name of your crate
+        .run();
+}
+```
+
+Finally, stub out a public `init` function in `lib.rs`
+
+```rust
+// lib.rs
+use zed::unstable::ui::App;
+
+pub fn init(cx: &mut App) {
+    //
+}
+```
+
+Now when we `cargo run`, we'll get a full debug build of the Zed editor. Now all we
+need to do is add our plugin's behavior via the `init` function.
+
+## Learning about `&mut App`
+
+In GPUI, _all_ of the state and behavior of the application get installed into the App.
+Holding a `cx: &mut App` is essentially like holding the entire application in your hand,
+and through it you can read and update the state of the app, or add or remove behavior.
+
+Let's talk about state management in GPUI, which comes in two forms: Globals and Entities.
+
+### Global State
+
+Globals are pieces of state for which there may be zero or one instances in an App.
+Globals are referred to by type, and are internally held in a type map. Here's an example
+of using a Global value:
+
+```rust
+struct GlobalStatus(String);
+impl Global for GlobalStatus {}
+
+pub fn init(cx: &mut App) {
+    // Write: Set a new global value in the App
+    cx.set_global(GlobalStatus("loading".to_string()));
+    
+    // Read: Get the global value by specifying its type
+    let status: String = cx.read_global::<GlobalStatus>().0.clone();
+}
+```
+
+### Entities: Instance state
+
+Entities allow for storing zero to many instances of a kind of state in the App,
+and provide cheaply cloneable handles for interacting with that state. Let's see
+what this looks like in practice:
+
+```rust
+pub struct MyState {
+    name: SharedString,
+}
+
+impl MyState {
+    pub fn new(cx: &mut Context<Self>) {
+        Self {
+            name: "Bob".into(),
+        }
+    }
+}
+
+pub fn init(cx: &mut App) {
+    // Create a new Entity using `cx.new`
+    let my_state_entity: Entity<MyState> = cx.new(|cx| MyState::new(cx));
+    
+    // Use the handle to look up the state from the App cx
+    let name: SharedString = my_state_entity.read(cx).name.clone();
+    
+    // Use entity.update and provide a closure to edit the instance state
+    my_state_entity.update(cx, |it: &mut MyState, cx| {
+        it.name = "Carol".into();
+    });
+}
+```
+
+## Rendering
+
+GPUI has a `Render` trait that allows entity types to describe how they should
+be painted to the screen. Writing a render function feels like using HTML and Tailwind,
+except it's pure Rust functions and lots of fluent builder-style APIs. Let's look
+at one to render a chat bubble:
+
+```rust
+pub struct ChatBubble {
+    display_name: SharedString,
+    message: SharedString,
+}
+
+impl ChatBubble {
+    pub fn new(cx: &mut Context<Self>) -> Self {
+        Self {
+            display_name: "Alice".into(),
+            message: "Hey, are you online?".into(),
+        }
+    }
+}
+
+impl Render for ChatBubble {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        h_flex()
+            //
+            .p_2()
+            .child(
+                //
+                h_flex()
+                    .flex_shrink()
+                    //
+                    .bg(cx.theme().colors().panel_background)
+                    .p_4()
+                    .gap_4()
+                    .rounded_bl_lg()
+                    .rounded_br_lg()
+                    .rounded_tr_lg()
+                    .child(
+                        //
+                        img(PathBuf::from(".assets/tagged.svg"))
+                            //
+                            .w(px(48.))
+                            .rounded_lg(),
+                    )
+                    .child(
+                        v_flex()
+                            //
+                            .child(
+                                //
+                                div()
+                                    //
+                                    .text_lg()
+                                    .child(self.display_name.clone()),
+                            )
+                            .child(
+                                //
+                                div()
+                                    //
+                                    .child(self.message.clone()),
+                            ),
+                    ),
+            )
+    }
+}
+```
+
+This should render a bubble with three rounded corners and one sharp corner, with a
+profile picture on the left and a name and message on the right.
+
+---
+
+Another advantage of building on GPUI/Zed is that it's fairly young, which
+means that most of the things that will ever be built with it, haven't been built
+yet. I sincerely think this platform is going to snowball and take off, especially
+with seeing consideration for mobile rendering. Just imagine, an app platform that's
+secure, durable, portable, cross-platform, and built to work for humanity first.
+
+What do we humans need in our digital lives? Digital content we interact with is
+media of all kinds, like images, videos, text, blobs/files, and even applications.
+
+Today, we rely heavily on centralized technology like Browsers and web apps
+to handle and store our data. Tomorrow, I want data to return to physical owned
+medium, like hard drives in our own homes. The trick will be making it more convenient
+and easy and satisfying to use than Cloud products. I think the latency gains from
+local-first over cloud-based will feel like such an incredible performance leap to
+users. Plus the fact that GPUI is also specifically designed with performance in
+mind, I hope apps built this way will feel lightning fast.
+
+I said the Browser is a "centralized technology" because it legitimizes and normalizes
+client/server communication, and establishes the assumption that the server is
+"in charge" of the data, and the client is (only) _allowed_ to _request_ access to
+the data.
+
+As a client on the web, you're at the mercy of any servers actually agreeing
+to accept your request. If you have data that only exists in a private cloud storage
+service, you do not own the data, because you do not have guaranteed continued access
+to that data. The cloud storage service could be having some downtime, but you'd still
+become separated from your data.
+
+So to avoid all of that, what could we do differently?
+
+> yes, a cliffhanger. I'll hopefully finish this soon
+
 # 2026 April 2
 
 - Protocol icons

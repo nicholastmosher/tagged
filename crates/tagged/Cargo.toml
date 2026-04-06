@@ -23,8 +23,8 @@ iroh = { version = "0.96", features = ["address-lookup-mdns"] }
 iroh-blobs = "0.98.0"
 iroh-docs = "0.96.0"
 iroh-gossip = "0.96.0"
-iroh-automerge = { path = "../../../../n0-computer/iroh-examples/iroh-automerge" }
-iroh-automerge-repo = { path = "../../../../n0-computer/iroh-examples/iroh-automerge-repo" }
+# iroh-automerge = { path = "../../../../n0-computer/iroh-examples/iroh-automerge" }
+# iroh-automerge-repo = { path = "../../../../n0-computer/iroh-examples/iroh-automerge-repo" }
 rand = "0.9.2"
 rand_core_0_6_4 = { package = "rand_core", version = "0.6.4" }
 rand_core = "0.9.2"
