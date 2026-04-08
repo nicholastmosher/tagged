@@ -23,6 +23,7 @@ mod willow;
 pub fn init(cx: &mut App) {
     components::init(cx);
     contacts::init(cx);
+    csh_demo::init(cx);
     iroh::init(cx);
     // iroh_panel_ui::init(cx);
     // iroh_topic_chat_ui::init(cx);

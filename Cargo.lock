@@ -18592,6 +18592,7 @@ dependencies = [
  "automerge",
  "autosurgeon",
  "bytes",
+ "csh-demo",
  "dashmap",
  "data-encoding",
  "derive_more 2.1.1",

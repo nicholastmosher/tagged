@@ -38,6 +38,9 @@ pub fn init(cx: &mut App) {
     .detach();
 }
 
+/// "Calendar Item" is actually the whole calendar view, not a single item on the calendar
+///
+/// It's called Item because the Workspace API calls main-pane things Items.
 pub struct CalendarItem {
     focus_handle: FocusHandle,
 }
@@ -69,6 +72,8 @@ impl Render for CalendarItem {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .size_full()
+            .min_h_80()
+            .min_w_80()
             //
             .bg(cx.theme().colors().editor_background)
             .p_4()
@@ -111,6 +116,7 @@ impl Render for CalendarItem {
                                     .grid_cols(7)
                                     .gap_2()
                                     .children((0..35).into_iter().map(|ix| {
+                                        let ix = ix + 1;
                                         //
                                         div()
                                             .bg(cx.theme().colors().element_selected)

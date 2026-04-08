@@ -46,11 +46,12 @@ ufotofu = { version = "0.8.8", features = ["compat_futures_io"] }
 zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
 
 # Path dependencies
+csh-demo = { path = "crates/csh-demo" }
 iroh-automerge = { path = "crates/iroh-automerge" }
-willow25 = { path = "../../../codeberg.org/worm-blossom/willow_rs/willow25" }
-willow-api-derive = { path = "crates/willow-api-derive" }
 # iroh-automerge = { path = "../../../../n0-computer/iroh-examples/iroh-automerge" }
 # iroh-automerge-repo = { path = "../../../../n0-computer/iroh-examples/iroh-automerge-repo" }
+willow25 = { path = "../../../codeberg.org/worm-blossom/willow_rs/willow25" }
+willow-api-derive = { path = "crates/willow-api-derive" }
 # zed = { path = "../../../zed/crates/zed" }
 
 [patch.crates-io]
