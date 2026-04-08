@@ -1,4 +1,4 @@
-# Project: Tagged
+# Tagged
 
 An experiment, to figure out a way to put human beings back in charge of their own data.
 
@@ -95,7 +95,9 @@ considering is this:
 > TODO: Write more about why I chose Zed and Willow as the basis for the stack
 
 <div align="center">
-<img src=".assets/tagged.svg" alt="My goofy project icon" width="300" height="300">
+  <a href="https://discord.gg/9rs3XvFJrC">
+    <img src=".assets/tagged.svg" alt="My goofy project icon" width="300" height="300">
+  </a>
 </div>
 
 > I needed an icon and this is what came out of me playing with Inkscape >:D
@@ -133,10 +135,47 @@ Here's the pitch: GPUI is _really good_ and hella fun to program with, and its
 design is elegant and pragmatic and modular and extensible. With some small tweaks,
 GPUI allows for composing plugins into a single application.
 
+Another advantage of building on GPUI/Zed is that it's fairly young, which
+means that most of the things that will ever be built with it haven't been built
+yet. I sincerely think this platform is going to snowball and take off, especially
+with seeing talk of mobile rendering. Just imagine, an app platform that's
+secure, durable, portable, cross-platform, and built to work for humanity first.
+
+What do we humans need in our digital lives? Digital content we interact with is
+media of all kinds, like images, videos, text, blobs/files, and even applications.
+
+Today, we rely heavily on centralized technology like Browsers and web apps
+to handle and store our data. Tomorrow, I want data to return to physical owned
+medium, like hard drives in our own homes. The trick will be making it more convenient
+and easy and satisfying to use than Cloud products. I think the latency gains from
+local-first over cloud-based will feel like such an incredible performance leap to
+users. Plus the fact that GPUI is also specifically designed with performance in
+mind, I hope apps built this way will feel lightning fast.
+
+I said the Browser is a "centralized technology" because it legitimizes and normalizes
+client/server communication, and establishes the assumption that the server is
+"in charge" of the data, and the client is (only) _allowed_ to _request_ access to
+the data.
+
+As a client on the web, you're at the mercy of any servers actually agreeing
+to accept your request. If you have data that only exists in a private cloud storage
+service, you do not own the data, because you do not have guaranteed continued access
+to that data. The cloud storage service could be having some downtime, but you'd still
+become separated from your data.
+
+So to avoid all of that, what could we do differently?
+
+> yes, a cliffhanger. I'll hopefully finish this soon
+
 ## Getting Started
 
-I wanna dive right in, and I'll ramble along the way. Create a new rust project with
-cargo and add these dependencies:
+I want to try to make this seminar interactive, where y'all can follow along the
+instructions here while I talk and help folks get a build working. So if you want
+to follow along, this guide should be good enough to get everything running.
+
+> Keep an eye out to really see and appreciate how modular and pluggable the patterns
+> here are. I've noticed that anything you make can become useful, because it's either
+> a learning experiment or it's something that can be integrated into the final app.
 
 ```
 $ cargo new --lib csh-demo
@@ -347,122 +386,113 @@ Zed's Workspace has public APIs that allow us to arbitrarily add new panels and 
 to it. For some applications, a Panel chould be used to provide navigation, and Items
 chould be used to interact with specific documents or channels or applications or media.
 
-### Workspace Panels
+### Workspace Items
 
 In this project I already need to make a calendar UI, so I'll use that as an exercise
 for showing how to integrate arbitrary GPUI elements into Zed.
-
-Let's take a look at how to create a custom Panel. We need to create a view
-(a type which implements `Render`), and implement the `Panel` trait.
 
 <details>
 
 <summary>From <a href="crates/csh-demo/src/calendar.rs">crates/csh-demo/src/calendar.rs</a></summary>
 
 ```rust
-actions!(calendar, [ToggleCalendar]);
-
-pub struct CalendarPanel {
-    dock_position: DockPosition,
+/// "Calendar Item" is actually the whole calendar view, not a single item on the calendar
+///
+/// It's called Item because the Workspace API calls main-pane things Items.
+pub struct CalendarItem {
     focus_handle: FocusHandle,
-    width: Option<Pixels>,
 }
-impl CalendarPanel {
+impl CalendarItem {
     pub fn new(cx: &mut Context<Self>) -> Self {
         Self {
-            dock_position: DockPosition::Left,
             focus_handle: cx.focus_handle(),
-            width: None,
         }
     }
 }
-impl Focusable for CalendarPanel {
+impl Focusable for CalendarItem {
     fn focus_handle(&self, _cx: &App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }
-impl EventEmitter<PanelEvent> for CalendarPanel {}
-impl Panel for CalendarPanel {
-    fn persistent_name() -> &'static str {
-        "Calendar"
-    }
 
-    fn panel_key() -> &'static str {
-        "calendar"
-    }
+#[non_exhaustive]
+pub struct CalendarEvent {}
+impl EventEmitter<CalendarEvent> for CalendarItem {}
+impl Item for CalendarItem {
+    type Event = CalendarEvent;
 
-    fn position(&self, _window: &Window, _cx: &App) -> DockPosition {
-        self.dock_position
-    }
-
-    fn position_is_valid(&self, _position: DockPosition) -> bool {
-        true
-    }
-
-    fn set_position(
-        &mut self,
-        position: DockPosition,
-        _window: &mut Window,
-        _cx: &mut Context<Self>,
-    ) {
-        self.dock_position = position;
-    }
-
-    fn size(&self, _window: &Window, _cx: &App) -> Pixels {
-        self.width.unwrap_or(px(300.))
-    }
-
-    fn set_size(&mut self, size: Option<Pixels>, _window: &mut Window, _cx: &mut Context<Self>) {
-        self.width = size;
-    }
-
-    fn icon(&self, _window: &Window, _cx: &App) -> Option<IconName> {
-        Some(IconName::AtSign)
-    }
-
-    fn icon_tooltip(&self, _window: &Window, _cx: &App) -> Option<&'static str> {
-        Some("Calendar")
-    }
-
-    fn toggle_action(&self) -> Box<dyn Action> {
-        Box::new(ToggleCalendar)
-    }
-
-    fn activation_priority(&self) -> u32 {
-        30
+    fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
+        "Calendar".into()
     }
 }
 
-impl Render for CalendarPanel {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+impl Render for CalendarItem {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
-            .debug()
+            .size_full()
+            .min_h_80()
+            .min_w_80()
             //
-            .p_2()
-            .child("Calendar Panel")
+            .bg(cx.theme().colors().editor_background)
+            .p_4()
+            .child(
+                //
+                v_flex()
+                    .size_full()
+                    //
+                    .bg(rgb(0xff2056))
+                    .rounded_xl()
+                    .child(
+                        //
+                        div()
+                            .w_full()
+                            .p_2()
+                            //
+                            .child(
+                                div()
+                                    //
+                                    .text_color(white())
+                                    .text_3xl()
+                                    .child("Calendar"),
+                            ),
+                    )
+                    // Calendar Body
+                    .child(
+                        //
+                        v_flex()
+                            .flex_grow()
+                            //
+                            .bg(cx.theme().colors().panel_background)
+                            .p_2()
+                            .rounded_b_lg()
+                            .child(
+                                div()
+                                    .flex_grow()
+                                    //
+                                    .grid()
+                                    .grid_rows(5)
+                                    .grid_cols(7)
+                                    .gap_2()
+                                    .children((0..35).into_iter().map(|ix| {
+                                        let ix = ix + 1;
+                                        //
+                                        div()
+                                            .bg(cx.theme().colors().element_selected)
+                                            //
+                                            .p_2()
+                                            .rounded_lg()
+                                            .shadow_lg()
+                                            .child(
+                                                //
+                                                div()
+                                                    //
+                                                    .child(SharedString::from(format!("{ix}"))),
+                                            )
+                                    })),
+                            ),
+                    ),
+            )
     }
-}
-
-pub fn init(cx: &mut App) {
-    // Create a Calendar entity to be added to the Workspace as a Panel
-    let calendar = cx.new(|cx| CalendarPanel::new(cx));
-
-    // Registers a callback for when a `Workspace` is created
-    cx.observe_new::<Workspace>(move |workspace, window, cx| {
-        let Some(window) = window else { return };
-
-        // Add the panel to the workspace and for demo purposes toggle it open right away
-        workspace.add_panel(calendar.clone(), window, cx);
-        workspace.toggle_panel_focus::<CalendarPanel>(window, cx);
-
-        // Register a callback for the `ToggleCalendar` action to toggle the panel focus in the Workspace
-        // This allows us to use `:togglecalendar` in the command palette to toggle the panel open/closed
-        // Clicking the panel icon also emits `ToggleCalendar`, so this handles both cases
-        workspace.register_action(|workspace, _: &ToggleCalendar, window, cx| {
-            workspace.toggle_panel_focus::<CalendarPanel>(window, cx);
-        });
-    })
-    .detach();
 }
 ```
 
@@ -478,38 +508,6 @@ pub fn init(cx: &mut App) {
   which is what I usually want.
 
 ---
-
-Another advantage of building on GPUI/Zed is that it's fairly young, which
-means that most of the things that will ever be built with it, haven't been built
-yet. I sincerely think this platform is going to snowball and take off, especially
-with seeing consideration for mobile rendering. Just imagine, an app platform that's
-secure, durable, portable, cross-platform, and built to work for humanity first.
-
-What do we humans need in our digital lives? Digital content we interact with is
-media of all kinds, like images, videos, text, blobs/files, and even applications.
-
-Today, we rely heavily on centralized technology like Browsers and web apps
-to handle and store our data. Tomorrow, I want data to return to physical owned
-medium, like hard drives in our own homes. The trick will be making it more convenient
-and easy and satisfying to use than Cloud products. I think the latency gains from
-local-first over cloud-based will feel like such an incredible performance leap to
-users. Plus the fact that GPUI is also specifically designed with performance in
-mind, I hope apps built this way will feel lightning fast.
-
-I said the Browser is a "centralized technology" because it legitimizes and normalizes
-client/server communication, and establishes the assumption that the server is
-"in charge" of the data, and the client is (only) _allowed_ to _request_ access to
-the data.
-
-As a client on the web, you're at the mercy of any servers actually agreeing
-to accept your request. If you have data that only exists in a private cloud storage
-service, you do not own the data, because you do not have guaranteed continued access
-to that data. The cloud storage service could be having some downtime, but you'd still
-become separated from your data.
-
-So to avoid all of that, what could we do differently?
-
-> yes, a cliffhanger. I'll hopefully finish this soon
 
 # 2026 April 2
 

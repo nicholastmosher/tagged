@@ -43,6 +43,7 @@ tokio-util = "0.7.17"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 tracing = "0.1.43"
 ufotofu = { version = "0.8.8", features = ["compat_futures_io"] }
+willow25 = { git = "https://codeberg.org/worm-blossom/willow_rs.git" }
 zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-plugins" }
 
 # Path dependencies
@@ -50,7 +51,7 @@ csh-demo = { path = "crates/csh-demo" }
 iroh-automerge = { path = "crates/iroh-automerge" }
 # iroh-automerge = { path = "../../../../n0-computer/iroh-examples/iroh-automerge" }
 # iroh-automerge-repo = { path = "../../../../n0-computer/iroh-examples/iroh-automerge-repo" }
-willow25 = { path = "../../../codeberg.org/worm-blossom/willow_rs/willow25" }
+# willow25 = { path = "../../../codeberg.org/worm-blossom/willow_rs/willow25" }
 willow-api-derive = { path = "crates/willow-api-derive" }
 # zed = { path = "../../../zed/crates/zed" }
 
