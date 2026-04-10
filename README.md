@@ -105,13 +105,23 @@ considering is this:
 > I was going for a hash-looking thing, and `t`s for "tagged", and this came out
 > also looking to me like DNA if you squint which is dope so for now I'm keeping it
 
+# 2026 April 9
+
+Tweaking Seminar, still want to mention:
+
+- Call out shortcuts or gotchas
+  - Using `v_flex()`, `h_flex()`, and `.debug()`
+  - Using `cx.listener(..)`
+  - Using `.id("...")` to gain access to stateful methods
+    - `.on_click(...)`, `.tooltip(...)`, `.active(...)`
+  - Mention that some methods require extension traits
+    - `FluentBuilder`, `ActiveTheme`, `InteractiveElement`,
+      `StatefulInteractiveElement`, `Styled`, `ParentElement`
+  - Using `Render` vs `RenderOnce`
+  - Explain closures, `Fn` vs `FnMut` vs `FnOnce`, show `move`
+  - Talk about foreground/background executors, limitations
+
 # 2026 April 7
-
-> pm
-
-
-
-> am
 
 Notes from today:
 
@@ -131,18 +141,23 @@ Giving a seminar about this project at CSH! Need to plan it out:
 
 # CSH Seminar: First-class plugins for GPUI and Zed, Vision for Tagged
 
-GPUI is a pure-rust Desktop app framework, and let me just say it is an absolute
-dream to work with. It provides a Tailwind-like styling API, meaning that it's both
-a breeze to work with and highly capable. The experience of writing GPUI code is
-one of being in the flow and actually being able to experiment and prototype UI
-on the fly. With a little practice, building new visual components is easy.
-I'd been looking for a good GUI framework in Rust for years, and GPUI is finally the
-one to scratch the itch, and it's so good at just getting things done.
+GPUI is a pure-rust Desktop app framework that provides a Tailwind-like styling API,
+meaning that it's both a breeze to work with and highly capable. The experience
+I've had with writing GPUI code is one of being in the flow and actually being able to
+experiment and prototype UI on the fly. With a little practice, building new visual
+components is easy. I'd been looking for a good GUI framework in Rust for years,
+and GPUI is finally the one to scratch the itch, and it's so good at just getting
+things done.
 
-One of the things that GPUI excells at is _being composable_. This is one of the
+```rust
+// Infinite potential
+pub fn init(cx: &mut App) { }
+```
+
+One of the things that GPUI excels at is _being composable_. This is one of the
 things I think contributes to being able to go with the flow. When designing UI
 in GPUI, it's like writing a tree like HTML, so as you're working and figuring
-out, this tree of code gets larger and larger. GPUI makes it super easy to just
+out a design, this tree of code gets larger and larger. GPUI makes it super easy to just
 cut and paste code from the middle of a tree into a new render function, like
 pruning a branch on an overgrown tree, but then re-rooting the pruned branch
 into the ground.
@@ -153,27 +168,19 @@ into the ground.
 > may be given a name that allows for them all to be referred to by one mental symbol.
 > There are many valid definitions of abstraction, this is just how I think of it.
 
-
-Here's the pitch: GPUI is _really good_ and hella fun to program with, and its
-design is elegant and pragmatic and modular and extensible. With some small tweaks,
-GPUI allows for composing plugins into a single application.
-
 Another advantage of building on GPUI/Zed is that it's fairly young, which
 means that most of the things that will ever be built with it haven't been built
 yet. I sincerely think this platform is going to snowball and take off, especially
-with seeing talk of mobile rendering. Just imagine, an app platform that's
-secure, durable, portable, cross-platform, and built to work for humanity first.
-
-What do we humans need in our digital lives? Digital content we interact with is
-media of all kinds, like images, videos, text, blobs/files, and even applications.
+since I've heard talk among the devs of mobile rendering. That makes this the
+perfect time to think big and imagine what future could be possible.
 
 Today, we rely heavily on centralized technology like Browsers and web apps
 to handle and store our data. Tomorrow, I want data to return to physical owned
-medium, like hard drives in our own homes. The trick will be making it more convenient
+mediums, like hard drives in our own homes. The trick will be making it more convenient
 and easy and satisfying to use than Cloud products. I think the latency gains from
 local-first over cloud-based will feel like such an incredible performance leap to
-users. Plus the fact that GPUI is also specifically designed with performance in
-mind, I hope apps built this way will feel lightning fast.
+users that it may be compelling to adopt. Plus the fact that GPUI is also specifically
+designed with performance in mind, I hope apps built this way will feel lightning fast.
 
 I said the Browser is a "centralized technology" because it legitimizes and normalizes
 client/server communication, and establishes the assumption that the server is
@@ -188,7 +195,15 @@ become separated from your data.
 
 So to avoid all of that, what could we do differently?
 
-> yes, a cliffhanger. I'll hopefully finish this soon
+I want a platform that really truly serves the needs of humans rather
+than profit. What do we humans need in our digital lives? Digital content we
+interact with is media of all kinds, like images, videos, text, blobs/files,
+and even applications. Think about that: Many apps we use are practically
+custom skins over the same core set of data types. If we created a common solution
+for our data needs - storage, transmission, sharing, and protection - we could
+build an ecosystem of applications that put users in control of their own data.
+Apps would practically just need define data types and how to render them, and the
+rest could be taken care of by the framework.
 
 ## Getting Started
 
@@ -203,6 +218,17 @@ to follow along, this guide should be good enough to get everything running.
 ```
 $ cargo new --lib csh-demo
 $ cd csh-demo
+```
+
+### Install Dependencies
+
+On Ubuntu, run this to install the necessary system libraries,
+on Mac look on brew, on Windows, good luck (just kidding feel
+free to ask for help)
+
+```
+$ sudo apt update
+$ sudo apt install pkg-config libx11-dev cmake libglib2.0-dev
 ```
 
 In Cargo.toml, add a git dependency to my fork of Zed:
@@ -263,9 +289,12 @@ Let's talk about state management in GPUI, which comes in two forms: Globals and
 
 ### Global State
 
-Globals are pieces of state for which there may be zero or one instances in an App.
-Globals are referred to by type, and are internally held in a type map. Here's an example
-of using a Global value:
+In any given `App`, there may be zero or one instance of any `Global` type.
+Internally, the app stores globals in a type map, which means that we use the _type_
+of the global to manipulate the _value_ of the global, such as when we set,
+read, or update the value.
+
+Here's an example of using a Global value:
 
 ```rust
 struct GlobalStatus(String);
@@ -282,9 +311,20 @@ pub fn init(cx: &mut App) {
 
 ### Entities: Instance state
 
-Entities allow for storing zero to many instances of a kind of state in the App,
-and provide cheaply cloneable handles for interacting with that state. Let's see
-what this looks like in practice:
+When we want to store more than one value of a given type in the `App`, we can
+use GPUI's Entities. Suppose we want to create an Entity for each CSHer in the
+room. We'd first define a struct or enum to hold the data we care about, such
+as `struct Csher {}`. Then, instead of constructing the value directly, we can
+use `let entity: Entity<Csher> = cx.new(|cx| Csher::new(cx))`.
+This tells the app how to construct the value internally; the actual data value
+gets stored in a map inside of `&mut App`, and the "entity" returned is just a
+lightweight handle that can be used to refer to that value.
+
+So having access only to an `Entity<T>` is not sufficient to read or manipulate
+the underlying `T` value. To do that, you must also have a `&mut App`
+available, since that's where the actual state is stored.
+
+Let's see what this looks like in practice:
 
 <details open>
 
@@ -429,7 +469,7 @@ So far, we've looked at some fundamental tools provided by GPUI:
 - Entities: Store zero-to-many instances of any `T: 'static` in an `&mut App`.
   An `Entity<T>` is a strong, typed handle which may be used with an `&mut App` context
   to read or update the entity's state.
-- Any `Entity<T>` where `T: Render` may be used as an element in a higher render call.
+- Any `Entity<T>` where `T: Render` may be used as an element in a render tree.
   So `Entity<T>` is a stateful unit of composition in a render tree.
   - All I mean is you can do `div().child(self.my_view.clone())` if `MyView: Render`
 
@@ -451,7 +491,7 @@ chould be used to interact with specific documents or channels or applications o
 In this project I already need to make a calendar UI, so I'll use that as an exercise
 for showing how to integrate arbitrary GPUI elements into Zed.
 
-<details>
+<details open>
 
 <summary>From <a href="crates/csh-demo/src/calendar.rs">crates/csh-demo/src/calendar.rs</a></summary>
 
@@ -571,7 +611,8 @@ Misc notes
 
 Ubuntu VM notes
 
-- sudo apt install pkg-config
+- sudo apt update
+- sudo apt install pkg-config libx11-dev cmake libglib2.0-dev
 
 ---
 
