@@ -598,6 +598,10 @@ impl Render for CalendarItem {
 
 </summary>
 
+When built and rendered, the calendar looks like this:
+
+![Calendar view](.assets/screenshot-tagged-calendar-20260410.png)
+
 ---
 
 Misc notes
