@@ -375,7 +375,6 @@ impl TaggedPanel {
     ) -> impl IntoElement {
         // Container, no flex
         v_flex()
-            .debug()
             .bg(cx.theme().colors().editor_background)
             //
             .p_2()

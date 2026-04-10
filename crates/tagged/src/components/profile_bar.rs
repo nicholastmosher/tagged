@@ -64,7 +64,6 @@ impl Component for ProfileBar {
         let profile = cx.willow().create_profile("Myselfandi", cx);
         let canvas = div()
             //
-            .debug()
             .p_4()
             .child(ProfileBar::new(profile));
         Some(Element::into_any(canvas))

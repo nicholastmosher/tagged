@@ -4,8 +4,8 @@ use zed::unstable::{
         white,
     },
     ui::{
-        ActiveTheme, App, Context, IntoElement, ParentElement as _, Render, Styled as _, Window,
-        div, v_flex,
+        ActiveTheme, App, Context, InteractiveElement as _, IntoElement, ParentElement as _,
+        Render, StatefulInteractiveElement as _, Styled as _, Window, div, v_flex,
     },
     workspace::{Item, Workspace},
 };
@@ -45,6 +45,7 @@ pub struct CalendarItem {
     focus_handle: FocusHandle,
 }
 impl CalendarItem {
+    // cx.new(|cx| CalendarItem::new(cx));
     pub fn new(cx: &mut Context<Self>) -> Self {
         Self {
             focus_handle: cx.focus_handle(),
@@ -58,7 +59,7 @@ impl Focusable for CalendarItem {
 }
 
 #[non_exhaustive]
-pub struct CalendarEvent {}
+pub enum CalendarEvent {}
 impl EventEmitter<CalendarEvent> for CalendarItem {}
 impl Item for CalendarItem {
     type Event = CalendarEvent;
@@ -69,7 +70,7 @@ impl Item for CalendarItem {
 }
 
 impl Render for CalendarItem {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .size_full()
             .min_h_80()
@@ -119,6 +120,17 @@ impl Render for CalendarItem {
                                         let ix = ix + 1;
                                         //
                                         div()
+                                            .id(SharedString::from(format!("calendar-tile-{ix}")))
+                                            .hover(|style| {
+                                                style
+                                                    //
+                                                    .bg(cx.theme().colors().ghost_element_hover)
+                                            })
+                                            .active(|style| {
+                                                style
+                                                    //
+                                                    .bg(cx.theme().colors().ghost_element_active)
+                                            })
                                             .bg(cx.theme().colors().element_selected)
                                             //
                                             .p_2()

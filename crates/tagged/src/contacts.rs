@@ -126,7 +126,6 @@ impl Contacts {
 impl Render for Contacts {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         div()
-            .debug()
             .p_2()
             .gap_2()
             .flex()

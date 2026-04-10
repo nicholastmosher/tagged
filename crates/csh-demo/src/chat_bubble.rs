@@ -34,10 +34,11 @@ impl ChatBubble {
 
 impl Render for ChatBubble {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        h_flex()
+        v_flex()
             //
             .p_2()
-            .child(
+            .gap_2()
+            .children(["Alice", "Bob"].into_iter().map(|name| {
                 //
                 h_flex()
                     .flex_shrink()
@@ -65,7 +66,7 @@ impl Render for ChatBubble {
                                 div()
                                     //
                                     .text_lg()
-                                    .child(self.display_name.clone()),
+                                    .child(SharedString::from(name)),
                             )
                             .child(
                                 //
@@ -73,8 +74,8 @@ impl Render for ChatBubble {
                                     //
                                     .child(self.message.clone()),
                             ),
-                    ),
-            )
+                    )
+            }))
     }
 }
 

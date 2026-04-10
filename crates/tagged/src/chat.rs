@@ -139,11 +139,10 @@ impl Render for ChatUi {
             .flex()
             .flex_col()
             .child(self.chat_feed.clone())
-            .child(div().p_2().flex_grow().debug())
+            .child(div().p_2().flex_grow())
             // .child(self.object_widget.clone())
             .child(
                 div()
-                    .debug()
                     //
                     .p_4()
                     .child(self.input_editor.clone()),
