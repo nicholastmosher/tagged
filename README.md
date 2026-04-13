@@ -67,7 +67,7 @@ pro-democracy, and pro-sovereignty. Human beings should be able to use digital s
 while maintaining an expectation of privacy and anonymity, while also enjoying the
 capabilities of live collaboration and group sharing.
 
-## Leading use-cases
+## Motivating Use-Cases
 
 The first handful of use-cases I want to support are all things that would be useful in
 local community organizing. I'd consider an essential toolkit should include chat, a
@@ -104,6 +104,41 @@ considering is this:
 >
 > I was going for a hash-looking thing, and `t`s for "tagged", and this came out
 > also looking to me like DNA if you squint which is dope so for now I'm keeping it
+
+# 2026 April 13
+
+I've been working on chat via automerge but struggling to get the mental model right.
+Let me try to identify where state should live and sketch out the structure of the workflow:
+
+Workflows:
+
+- Creating a new Connection
+  - Precondition: There exist two Endpoints which have not connected before
+  - Trigger: Connection ticket is copied from one peer and pasted in another.
+  - Effect: Pasted peer dials peer which sent connection ticket
+  - Postcondition: Each peer is holding and has persisted the others' EndpointId
+  - Postcondition: Peers have established a Connection on IrohSamod ALPN/protocol
+  - Postcondition: No chat sessions have been created, no documents created
+
+- Creating a new Chat
+  - Precondition: There exists a Connection between two peers with IrohSamod ALPN
+  - Precondition: There has not yet been a chat created between the two peers
+  - Trigger: User on either peer clicks "open chat" for the remote peer
+  - Effect: Triggered peer creates an Automerge document backing the new chat
+  - Effect: Triggered peer sends message to remote peer indicating created chat doc
+  - Postcondition: Both peers hold a DocHandle to the new chat
+  - ~Postcondition: Both peers open a ChatUi to render the shared chat document~
+  - Postcondition: Triggering peer opens a ChatUi backed by the DocHandle
+
+- Opening an existing Chat
+  - Precondition: There exists a Connection between two peers with IrohSamod ALPN
+  - Precondition: There has already been a chat created between the two peers
+  - Precondition: Each peer holds the DocId associated with the chat between the two
+  - Trigger: User on either peer clicks "open chat" for the remote peer
+  - Effect: Triggering peer uses DocId to lookup the DocHandle from the repo
+  - Effect: Triggering peer opens ChatUi backed by the DocHandle
+  - Postcondition: Triggering peer is viewing ChatUi for clicked chat
+  - Postcondition: Receiving peer does not open a ChatUi
 
 # 2026 April 10
 
