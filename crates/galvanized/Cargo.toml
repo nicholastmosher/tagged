@@ -1,0 +1,8 @@
+[package]
+name = "galvanized"
+description = "Local-first social and productivity platform"
+license = "GPL-3.0-or-later"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]

@@ -8565,6 +8565,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "galvanized"
+version = "0.0.0"
+
+[[package]]
 name = "gemm"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
