@@ -11,7 +11,7 @@ async fn main() {
 
     application()
         .add_plugins(zed::init)
-        .add_plugins(tagged::init)
+        .add_plugins(gzed::init)
         .add_plugins(plugin_calendar::init)
         .add_plugins(plugin_chat::init)
         .add_plugins(plugin_iroh::init)

@@ -1,11 +1,17 @@
 [package]
-name = "tagged" # this is taken on crates.io, but tagt isn't...
+name = "galvanized"
+description = "Local-first social and productivity platform"
+license = "GPL-3.0-or-later"
 version = "0.0.0"
 edition = "2024"
-default-run = "tagged"
+default-run = "gzed"
+
+[lib]
+name = "gzed"
+path = "src/lib.rs"
 
 [[bin]]
-name = "tagged"
+name = "gzed"
 path = "src/bin/main.rs"
 
 [dependencies]
