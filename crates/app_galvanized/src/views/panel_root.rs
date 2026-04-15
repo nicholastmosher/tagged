@@ -238,7 +238,7 @@ impl PanelRoot {
                         //
                         div()
                             //
-                            .p(px(1.))
+                            .p(px(2.))
                             .rounded_xl()
                             .with_animation(
                                 "title-icon-animation",
@@ -272,9 +272,9 @@ impl PanelRoot {
                                     .bg(linear_gradient(
                                         30. + 180.,
                                         //
-                                        linear_color_stop(rgba(0x929292ff), 0.0),
+                                        linear_color_stop(rgba(0x929292ff), -1.5),
                                         // linear_color_stop(rgb(0x000000), 1.0),
-                                        linear_color_stop(rgba(0x000000ff), 1.0),
+                                        linear_color_stop(rgba(0x000000ff), 1.2),
                                     ))
                                     .rounded_xl()
                                     .child(

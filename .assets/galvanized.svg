@@ -29,12 +29,12 @@
      inkscape:document-units="mm"
      showgrid="false"
      inkscape:zoom="0.4128646"
-     inkscape:cx="374.21469"
-     inkscape:cy="580.09333"
+     inkscape:cx="639.43482"
+     inkscape:cy="323.35056"
      inkscape:window-width="1512"
      inkscape:window-height="867"
      inkscape:window-x="2636"
-     inkscape:window-y="103"
+     inkscape:window-y="99"
      inkscape:window-maximized="0"
      inkscape:current-layer="g55667" />
   <defs
@@ -151,10 +151,10 @@
        id="linearGradient12737"
        x1="58.581936"
        y1="222.71237"
-       x2="226.52008"
-       y2="-52.962498"
+       x2="465.40823"
+       y2="-516.12384"
        gradientUnits="userSpaceOnUse"
-       gradientTransform="matrix(0.10408591,0,0,0.10626342,-0.54289863,-0.77735208)" />
+       gradientTransform="matrix(0.10044544,0,0,0.10254679,-0.06121226,-0.28746555)" />
     <linearGradient
        inkscape:collect="always"
        xlink:href="#linearGradient58016"
@@ -194,13 +194,13 @@
          ry="2.1373138"
          transform="scale(-1)" />
       <rect
-         style="fill:url(#linearGradient12737);fill-opacity:1;fill-rule:evenodd;stroke-width:0.029237;stroke-linejoin:round;stroke-opacity:0.204819"
+         style="fill:url(#linearGradient12737);fill-opacity:1;fill-rule:evenodd;stroke-width:0.0282144;stroke-linejoin:round;stroke-opacity:0.204819"
          id="rect12665"
-         width="25.651777"
-         height="25.651777"
-         x="0.40327355"
-         y="0.40327355"
-         ry="2.0650861" />
+         width="24.754589"
+         height="24.754589"
+         x="0.85186696"
+         y="0.85186696"
+         ry="1.9928585" />
       <g
          id="g2731"
          transform="matrix(0.1,0,0,0.1,-0.82068806,0.38180523)"
