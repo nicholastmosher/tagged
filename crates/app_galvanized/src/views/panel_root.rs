@@ -7,7 +7,7 @@ use zed::unstable::{
     gpui::{
         self, Action, Animation, AnimationExt as _, AppContext as _, Entity, EventEmitter,
         FocusHandle, Focusable, actions, bounce, img, linear_color_stop, linear_gradient,
-        quadratic, rgb,
+        quadratic, rgb, rgba,
     },
     ui::{
         ActiveTheme, App, Context, FluentBuilder as _, IconName, InteractiveElement as _,
@@ -240,27 +240,12 @@ impl PanelRoot {
                             //
                             .p(px(1.))
                             .rounded_xl()
-                            .child(
-                                //
-                                img(PathBuf::from(".assets/galvanized.png"))
-                                    .size(px(48.))
-                                    .rounded_xl(),
-                            )
                             .with_animation(
                                 "title-icon-animation",
-                                Animation::new(Duration::from_secs(10 * 6))
+                                Animation::new(Duration::from_secs(10))
                                     .repeat()
                                     .with_easing(|t| {
-                                        // // t: [0.0, 1.0]
-                                        // if t < 0.10 {
-                                        //     //
-                                        //     // quadratic(10. * t)
-                                        //     quadratic(10. * t)
-                                        // } else {
-                                        //     //
-                                        //     // t
-                                        //     1.0
-                                        // }
+                                        // t: [0.0, 1.0]
                                         quadratic(
                                             //
                                             t,
@@ -271,13 +256,33 @@ impl PanelRoot {
                                     el
                                         //
                                         .bg(linear_gradient(
-                                            360. * t,
+                                            30. + 360. * t,
                                             //
                                             linear_color_stop(rgb(0xff6600), 0.0),
                                             // linear_color_stop(rgb(0x000000), 1.0),
                                             linear_color_stop(rgb(0x00002b), 1.0),
                                         ))
                                 },
+                            )
+                            .child(
+                                //
+                                div()
+                                    //
+                                    .p(px(1.))
+                                    .bg(linear_gradient(
+                                        30. + 180.,
+                                        //
+                                        linear_color_stop(rgba(0x929292ff), 0.0),
+                                        // linear_color_stop(rgb(0x000000), 1.0),
+                                        linear_color_stop(rgba(0x000000ff), 1.0),
+                                    ))
+                                    .rounded_xl()
+                                    .child(
+                                        //
+                                        img(PathBuf::from(".assets/galvanized-gz.png"))
+                                            .size(px(48.))
+                                            .rounded_xl(),
+                                    ),
                             ),
                     ),
             )
