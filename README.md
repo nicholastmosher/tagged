@@ -182,6 +182,13 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 April 16
+
+Today I want to work on Automerge stuff again.
+
+- Finish implementing workflows from April 13 notes
+- Aiming for basic e2e sync for chat
+
 # 2026 April 15
 
 Claim hash: make an assertion about a data structure after calculating and then viewing it,

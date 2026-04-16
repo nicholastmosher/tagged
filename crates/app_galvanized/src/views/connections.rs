@@ -5,14 +5,16 @@
 // - Allowing adding new peers
 // - Allowing removing peers
 
-use std::path::PathBuf;
+use std::{any::TypeId, path::PathBuf};
 
 use anyhow::{anyhow, bail};
-use iroh::EndpointAddr;
+use iroh::{EndpointAddr, EndpointId};
 use tracing::info;
 use zed::unstable::{
     editor::Editor,
-    gpui::{AppContext as _, AsyncApp, ClipboardItem, Entity, Global, KeyDownEvent, img},
+    gpui::{
+        AppContext as _, AsyncApp, ClickEvent, ClipboardItem, Entity, Global, KeyDownEvent, img,
+    },
     ui::{
         ActiveTheme as _, App, Context, FluentBuilder, Icon, IconName, IconSize,
         InteractiveElement as _, IntoElement, ListSeparator, ParentElement as _, Render,
@@ -24,7 +26,7 @@ use zed::unstable::{
     workspace::Workspace,
 };
 
-use crate::Ticket;
+use crate::{Ticket, views::panel_root::PanelRoot};
 use plugin_chat::ChatUi;
 use plugin_iroh::IrohExt as _;
 
@@ -64,14 +66,28 @@ impl ConnectionsUi {
 
 impl Render for ConnectionsUi {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let endpoint_id = cx.iroh().endpoint_id();
-
-        //
         v_flex()
             // .debug()
             .size_full()
             //
             .p_2()
+            .gap_2()
+            .child(self.render_connection_header(window, cx))
+            .child(ListSeparator)
+            .child(self.render_connected_peers(window, cx))
+    }
+}
+
+impl ConnectionsUi {
+    fn render_connection_header(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let endpoint_id = cx.iroh().endpoint_id();
+
+        v_flex()
+            //
             .gap_2()
             .child(
                 //
@@ -182,116 +198,107 @@ impl Render for ConnectionsUi {
                             .child(self.input_ticket.clone()),
                     ),
             )
-            .child(ListSeparator)
+    }
+
+    fn render_connected_peers(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            .size_full()
+            //
             .child(
-                //
                 div()
-                    // .debug()
-                    .size_full()
                     //
-                    .child(
-                        div()
+                    .when_none(&cx.iroh().remote_peers(), |el| {
+                        el
                             //
-                            .when_none(&cx.iroh().remote_peers(), |el| {
-                                el
+                            .child("No remote peers")
+                    })
+                    .when_some(cx.iroh().remote_peers(), |el, peers| {
+                        //
+                        el
+                            //
+                            .children(peers.iter().map(|endpoint_id| {
+                                h_flex()
+                                    .id(format!("remote-peer-{endpoint_id}"))
                                     //
-                                    .child("No remote peers")
-                            })
-                            .when_some(cx.iroh().remote_peers(), |el, peers| {
-                                //
-                                el
-                                    //
-                                    .children(peers.iter().map(|endpoint_id| {
-                                        h_flex()
-                                            .id(format!("remote-peer-{endpoint_id}"))
+                                    .p_2()
+                                    .rounded_md()
+                                    .hover(|style| {
+                                        style
                                             //
-                                            .p_2()
-                                            .rounded_md()
-                                            .hover(|style| {
-                                                style
-                                                    //
-                                                    .bg(cx.theme().colors().ghost_element_hover)
-                                            })
-                                            .active(|style| {
-                                                style
-                                                    //
-                                                    .bg(cx.theme().colors().ghost_element_active)
-                                            })
-                                            // Connect to the clicked peer
-                                            // - Create a document for the chat
-                                            // -
-                                            .on_click(cx.listener({
-                                                let endpoint_id = *endpoint_id;
-                                                move |this, e, window, cx| {
-                                                    let window_handle = window.window_handle();
-                                                    cx.spawn_in(window, async move |it, cx| {
-                                                        let doc = cx.iroh().create_doc(cx).await?;
-
-                                                        cx.update_window(
-                                                            window_handle,
-                                                            |it, window, cx| {
-                                                                info!("Updating Window on Create Chat");
-
-                                                                let Ok(this) =
-                                                                    it.downcast::<Self>() else {
-                                                                        bail!("failed to downcast ConnectionsUi");
-                                                                    };
-
-                                                                info!("Updating Window on Create Chat");
-
-                                                                let chat_ui = cx.new(|cx| {
-                                                                    ChatUi::new(
-                                                                        endpoint_id,
-                                                                        doc,
-                                                                        window,
-                                                                        cx,
-                                                                    )
-                                                                });
-
-                                                                this.read(cx).workspace.clone().update(
-                                                                    cx,
-                                                                    |workspace, cx| {
-                                                                        workspace.add_item_to_active_pane(
-                                                                            Box::new(chat_ui),
-                                                                            Some(0),
-                                                                            true,
-                                                                            window,
-                                                                            cx,
-                                                                        );
-                                                                    },
-                                                                );
-
-                                                                anyhow::Ok(())
-                                                            },
-                                                        )??;
-
-                                                        anyhow::Ok(())
-                                                    })
-                                                    .detach_and_log_err(cx);
-                                                }
-                                            }))
-                                            .child({
-                                                //
-                                                let mut string = endpoint_id.to_string();
-                                                let suffix = string.split_off(string.len() - 8);
-                                                SharedString::from(suffix)
-                                            })
-                                            .child(div().flex_grow())
+                                            .bg(cx.theme().colors().ghost_element_hover)
+                                    })
+                                    .active(|style| {
+                                        style
+                                            //
+                                            .bg(cx.theme().colors().ghost_element_active)
+                                    })
+                                    // Connect to the clicked peer
+                                    // - Create a document for the chat
+                                    // -
+                                    .on_click({
+                                        let endpoint_id = *endpoint_id;
+                                        cx.listener(move |this, e, window, cx| {
+                                            //
+                                            this.open_chat(endpoint_id, e, window, cx);
+                                        })
+                                    })
+                                    .child({
+                                        //
+                                        let mut string = endpoint_id.to_string();
+                                        let suffix = string.split_off(string.len() - 8);
+                                        SharedString::from(suffix)
+                                    })
+                                    .child(div().flex_grow())
+                                    .child(
+                                        //
+                                        div()
+                                            //
                                             .child(
                                                 //
-                                                div()
-                                                    //
-                                                    .child(
-                                                        //
-                                                        img(PathBuf::from(
-                                                            ".assets/chat-bubble.svg",
-                                                        ))
-                                                        .size(px(24.)),
-                                                    ),
-                                            )
-                                    }))
-                            }),
-                    ),
+                                                img(PathBuf::from(".assets/chat-bubble.svg"))
+                                                    .size(px(24.)),
+                                            ),
+                                    )
+                            }))
+                    }),
             )
+    }
+
+    fn open_chat(
+        &mut self,
+        endpoint_id: EndpointId,
+        e: &ClickEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let window_handle = window.window_handle();
+        cx.spawn_in(window, async move |it, cx| {
+            let doc = cx.iroh().create_doc(cx).await?;
+
+            cx.update_window(window_handle, |it, window, cx| {
+                info!("Updating Window on Create Chat");
+
+                let Ok(this) = it.downcast::<Workspace>() else {
+                    bail!("failed to downcast ConnectionsUi");
+                };
+
+                info!("Updating Window on Create Chat");
+
+                let chat_ui = cx.new(|cx| ChatUi::new(endpoint_id, doc, window, cx));
+
+                // this.read(cx).workspace.clone().update(cx, |workspace, cx| {
+                //     workspace.add_item_to_active_pane(Box::new(chat_ui), Some(0), true, window, cx);
+                // });
+
+                anyhow::Ok(())
+            })??;
+
+            anyhow::Ok(())
+        })
+        .detach_and_log_err(cx);
     }
 }
