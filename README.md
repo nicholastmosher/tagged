@@ -1,5 +1,7 @@
 # GalvaniZed
 
+[![CI](https://github.com/nicholastmosher/galvanized/actions/workflows/ci.yml/badge.svg)](https://github.com/nicholastmosher/galvanized/actions/workflows/ci.yml)
+
 An experiment to put human beings back in charge of their own data.
 
 <div align="center">
