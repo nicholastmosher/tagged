@@ -5,6 +5,7 @@ use plugin_iroh::IrohExt as _;
 use samod::DocHandle;
 /// ChatUi is a `Workspace` item, rendering into the tab window
 use zed::unstable::{
+    db::smol::stream::StreamExt,
     editor::Editor,
     gpui::{
         self, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent, actions,
@@ -14,6 +15,7 @@ use zed::unstable::{
         ActiveTheme, App, Context, InteractiveElement as _, IntoElement, ParentElement, Render,
         RenderOnce, SharedString, Styled, Window, div, v_flex,
     },
+    util::ResultExt,
     workspace::Item,
 };
 
@@ -71,6 +73,7 @@ impl RenderOnce for ChatBubble {
 /// let ChatUi be the large Item in the main window,
 /// let ChatBubble be one item in the feed
 pub struct ChatUi {
+    doc_handle: DocHandle,
     document: ChatDocument,
     endpoint_id: EndpointId,
     focus_handle: FocusHandle,
@@ -125,8 +128,34 @@ impl ChatUi {
             editor
         });
 
+        cx.spawn({
+            let doc = doc_handle.clone();
+            async move |weak_this, cx| {
+                let mut doc_stream = doc.changes();
+                while let Some(changes) = doc_stream.next().await {
+                    // for change in &changes.new_heads {
+                    //
+                    let result = doc
+                        .with_document(|automerge| {
+                            let autocommit = AutoCommit::load(&automerge.save())?;
+                            anyhow::Ok(autocommit)
+                        })
+                        .map_err(|e| e.context("failed to load Automerge doc"));
+                    let autocommit = match result {
+                        Ok(ac) => ac,
+                        Err(error) => {
+                            tracing::error!(?error, "error while handling doc_stream event");
+                            continue;
+                        }
+                    };
+                }
+            }
+        })
+        .detach();
+
         Self {
             document,
+            doc_handle,
             endpoint_id,
             focus_handle: cx.focus_handle(),
             input_editor,
@@ -135,11 +164,12 @@ impl ChatUi {
 }
 
 impl Render for ChatUi {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         v_flex()
             .size_full()
             //
             .bg(cx.theme().colors().editor_background)
+            // Messages above
             .child(
                 //
                 v_flex()
@@ -152,42 +182,50 @@ impl Render for ChatUi {
                         ChatBubble::new(&message.sender_id, &message.body)
                     })),
             )
-            .child(
-                div()
-                    .id("chat-input")
-                    //
-                    .border_2()
-                    .border_color(cx.theme().colors().border_selected)
-                    .p_4()
-                    .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
-                        if e.keystroke.key != "enter" {
-                            return;
-                        }
-                        let text = this.input_editor.read(cx).text(cx);
-                        if !text.is_empty() {
-                            return;
-                        }
+            // Text input below
+            .child(self.render_chat_input(window, cx))
+    }
+}
 
-                        cx.spawn(async move |ui, cx| {
-                            let doc = cx.iroh().create_doc(cx).await?;
+impl ChatUi {
+    fn render_chat_input(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            .id("chat-input")
+            //
+            .border_2()
+            .border_color(cx.theme().colors().border_selected)
+            .p_4()
+            .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
+                if e.keystroke.key != "enter" {
+                    return;
+                }
+                let text = this.input_editor.read(cx).text(cx);
+                if !text.is_empty() {
+                    return;
+                }
 
-                            cx.background_spawn(async move {
-                                doc.with_document(|am| {
-                                    let auto_commit = AutoCommit::load(&am.save())?;
-                                    anyhow::Ok(())
-                                })?;
-
-                                anyhow::Ok(())
-                            })
-                            .detach();
-
-                            //
+                let doc = this.doc_handle.clone();
+                cx.spawn(async move |ui, cx| {
+                    cx.background_spawn(async move {
+                        doc.with_document(|am| {
+                            let auto_commit = AutoCommit::load(&am.save())?;
                             anyhow::Ok(())
-                        })
-                        .detach_and_log_err(cx);
-                    }))
-                    .child(self.input_editor.clone()),
-            )
+                        })?;
+
+                        anyhow::Ok(())
+                    })
+                    .detach();
+
+                    //
+                    anyhow::Ok(())
+                })
+                .detach_and_log_err(cx);
+            }))
+            .child(self.input_editor.clone())
     }
 }
 

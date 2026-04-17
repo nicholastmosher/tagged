@@ -17698,6 +17698,7 @@ dependencies = [
  "iroh",
  "plugin-iroh",
  "samod",
+ "tracing",
  "zed 0.229.0",
 ]
 

@@ -9,7 +9,7 @@ use std::{any::TypeId, path::PathBuf};
 
 use anyhow::{anyhow, bail};
 use iroh::{EndpointAddr, EndpointId};
-use tracing::info;
+use tracing::{info, warn};
 use zed::unstable::{
     editor::Editor,
     gpui::{
@@ -276,23 +276,48 @@ impl ConnectionsUi {
         cx: &mut Context<Self>,
     ) {
         let window_handle = window.window_handle();
-        cx.spawn_in(window, async move |it, cx| {
+        cx.spawn_in(window, async move |this_weak, cx| {
             let doc = cx.iroh().create_doc(cx).await?;
 
-            cx.update_window(window_handle, |it, window, cx| {
+            cx.update_window(window_handle, |_it, window, cx| {
+                // info!("Updating Window on Create Chat");
+                // info!("Window entity ID: {:?}", it.entity_id());
+                // info!("Window entity type ID: {:?}", it.entity_type());
+
+                // // Debug what types we're dealing with
+                // let workspace_type_id = std::any::TypeId::of::<Workspace>();
+                // let panel_root_type_id = std::any::TypeId::of::<PanelRoot>();
+                // let connections_ui_type_id = std::any::TypeId::of::<Self>();
+
+                // info!("Workspace type ID: {:?}", workspace_type_id);
+                // info!("PanelRoot type ID: {:?}", panel_root_type_id);
+                // info!("ConnectionsUi type ID: {:?}", connections_ui_type_id);
+
+                // // Try different downcasts
+                // info!("Attempting to downcast to Workspace");
+                // if let Err(it) = it.downcast::<Workspace>() {
+                //     warn!("Not a Workspace");
+
+                //     if let Err(it) = it.downcast::<PanelRoot>() {
+                //         warn!("Not a PanelRoot");
+
+                //         if let Err(it) = it.downcast::<Self>() {
+                //             warn!("Not a ConnectionsUi");
+                //         };
+                //     };
+                // };
+
                 info!("Updating Window on Create Chat");
 
-                let Ok(this) = it.downcast::<Workspace>() else {
-                    bail!("failed to downcast ConnectionsUi");
-                };
-
-                info!("Updating Window on Create Chat");
+                let this_entity = this_weak
+                    .upgrade()
+                    .ok_or_else(|| anyhow!("failed to upgrade WeakEntity<ConnectionUi>"))?;
+                let workspace = this_entity.read(cx).workspace.clone();
 
                 let chat_ui = cx.new(|cx| ChatUi::new(endpoint_id, doc, window, cx));
-
-                // this.read(cx).workspace.clone().update(cx, |workspace, cx| {
-                //     workspace.add_item_to_active_pane(Box::new(chat_ui), Some(0), true, window, cx);
-                // });
+                workspace.update(cx, |workspace, cx| {
+                    workspace.add_item_to_active_pane(Box::new(chat_ui), Some(0), true, window, cx);
+                });
 
                 anyhow::Ok(())
             })??;

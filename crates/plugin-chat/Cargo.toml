@@ -10,4 +10,5 @@ autosurgeon.workspace = true
 iroh.workspace = true
 plugin-iroh.workspace = true
 samod.workspace = true
+tracing.workspace = true
 zed.workspace = true
