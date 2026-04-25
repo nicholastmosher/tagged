@@ -1,10 +1,11 @@
 use automerge::AutoCommit;
-use autosurgeon::{Hydrate, Reconcile};
+use autosurgeon::{Hydrate, Reconcile, hydrate, reconcile};
 use iroh::EndpointId;
 use samod::DocHandle;
+use tracing::info;
 /// ChatUi is a `Workspace` item, rendering into the tab window
 use zed::unstable::{
-    db::smol::stream::StreamExt,
+    db::smol::stream::StreamExt as _,
     editor::Editor,
     gpui::{
         self, AppContext as _, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent, actions,
@@ -14,6 +15,7 @@ use zed::unstable::{
         ActiveTheme, App, Context, InteractiveElement as _, IntoElement, ParentElement, Render,
         RenderOnce, SharedString, Styled, Window, div, v_flex,
     },
+    util::ResultExt,
     workspace::Item,
 };
 
@@ -25,7 +27,7 @@ actions!(
     ]
 );
 
-pub fn init(cx: &mut App) {
+pub fn init(_cx: &mut App) {
     // cx.observe_new::<Workspace>(|workspace, window, cx| {
     //     let Some(window) = window else { return };
     //     let chat = cx.new(|cx| ChatUi::new("MyChat", window, cx));
@@ -45,10 +47,10 @@ pub struct ChatBubble {
 }
 
 impl ChatBubble {
-    pub fn new(from: impl Into<SharedString>, message: impl Into<SharedString>) -> Self {
+    pub fn new(message: &ChatMessage) -> Self {
         Self {
-            from: from.into(),
-            message: message.into(),
+            from: SharedString::from(&message.sender_id),
+            message: SharedString::from(&message.body),
         }
     }
 }
@@ -78,13 +80,25 @@ pub struct ChatUi {
     input_editor: Entity<Editor>,
 }
 
-#[derive(Hydrate, Reconcile)]
+#[derive(Debug, Clone, Hydrate, Reconcile)]
 pub struct ChatDocument {
     //
     messages: Vec<ChatMessage>,
 }
 
-#[derive(Hydrate, Reconcile)]
+impl ChatDocument {
+    pub fn new() -> Self {
+        Self {
+            messages: Default::default(),
+        }
+    }
+
+    pub fn add_message(&mut self, message: ChatMessage) {
+        self.messages.push(message);
+    }
+}
+
+#[derive(Debug, Clone, Hydrate, Reconcile)]
 pub struct ChatMessage {
     //
     sender_id: String,
@@ -113,12 +127,11 @@ impl ChatUi {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let messages = vec![
-            // ChatMessage::new("John", "Hey what's up?"),
-            // ChatMessage::new("Mary", "Nothing much"),
-        ];
-
-        let document = ChatDocument { messages };
+        // let messages = vec![
+        //     // ChatMessage::new("John", "Hey what's up?"),
+        //     // ChatMessage::new("Mary", "Nothing much"),
+        // ];
+        let document = ChatDocument::new();
 
         let input_editor = cx.new(|cx| {
             let mut editor = Editor::single_line(window, cx);
@@ -127,29 +140,39 @@ impl ChatUi {
         });
 
         cx.spawn({
-            let doc = doc_handle.clone();
-            async move |weak_this, cx| {
-                let mut doc_stream = doc.changes();
-                while let Some(changes) = doc_stream.next().await {
-                    // for change in &changes.new_heads {
-                    //
-                    let result = doc
-                        .with_document(|automerge| {
-                            let autocommit = AutoCommit::load(&automerge.save())?;
-                            anyhow::Ok(autocommit)
-                        })
-                        .map_err(|e| e.context("failed to load Automerge doc"));
-                    let autocommit = match result {
-                        Ok(ac) => ac,
-                        Err(error) => {
-                            tracing::error!(?error, "error while handling doc_stream event");
-                            continue;
-                        }
-                    };
+            let doc_handle = doc_handle.clone();
+            async move |this, cx| {
+                let (tx, rx) = flume::bounded(10);
+                cx.background_spawn(async move {
+                    let mut doc_stream = doc_handle.changes();
+                    while let Some(changes) = doc_stream.next().await {
+                        info!(?changes, "Received Automerge update for Chat");
+
+                        doc_handle.with_document(|am| {
+                            // let ac = AutoCommit::load(&automerge.save())?;
+                            let chat_document: ChatDocument = hydrate(am)?;
+                            tx.send(chat_document).log_err();
+                            anyhow::Ok(())
+                        })?;
+                    }
+
+                    anyhow::Ok(())
+                })
+                .detach();
+
+                let mut rx_stream = rx.into_stream();
+                while let Some(chat_document) = rx_stream.next().await {
+                    this.update(cx, |this, _cx| {
+                        // Update the UI's document with the new chat document
+                        this.document = chat_document;
+                        info!("Applied Automerge update to ChatUI");
+                    })?;
                 }
+
+                anyhow::Ok(())
             }
         })
-        .detach();
+        .detach_and_log_err(cx);
 
         Self {
             document,
@@ -177,7 +200,7 @@ impl Render for ChatUi {
                     .gap_2()
                     .children(self.document.messages.iter().map(|message| {
                         //
-                        ChatBubble::new(&message.sender_id, &message.body)
+                        ChatBubble::new(&message)
                     })),
             )
             // Text input below
@@ -192,38 +215,55 @@ impl ChatUi {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         div()
-            .id("chat-input")
             //
-            .border_2()
-            .border_color(cx.theme().colors().border_selected)
-            .p_4()
-            .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
-                if e.keystroke.key != "enter" {
-                    return;
-                }
-                let text = this.input_editor.read(cx).text(cx);
-                if !text.is_empty() {
-                    return;
-                }
-
-                let doc = this.doc_handle.clone();
-                cx.spawn(async move |ui, cx| {
-                    cx.background_spawn(async move {
-                        doc.with_document(|am| {
-                            let auto_commit = AutoCommit::load(&am.save())?;
-                            anyhow::Ok(())
-                        })?;
-
-                        anyhow::Ok(())
-                    })
-                    .detach();
-
+            .p_2()
+            .child(
+                //
+                div()
+                    .id("chat-input")
+                    .on_key_down(cx.listener(|this, e: &KeyDownEvent, window, cx| {
+                        if e.keystroke.key != "enter" {
+                            return;
+                        }
+                        info!("Pressed Enter to send");
+                        this.send_message(window, cx);
+                    }))
                     //
+                    .p_2()
+                    .border_2()
+                    .border_color(cx.theme().colors().border_selected)
+                    .rounded_lg()
+                    .child(self.input_editor.clone()),
+            )
+    }
+
+    fn send_message(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        let text = self.input_editor.read(cx).text(cx);
+        info!(text, "send_message");
+        if text.is_empty() {
+            return;
+        }
+        let message = ChatMessage::new("ID", "Name", text);
+        self.document.add_message(message);
+        info!("Added new message to local ChatUI");
+
+        let document = self.document.clone();
+        let doc_handle = self.doc_handle.clone();
+        cx.spawn(async move |_ui, cx| {
+            cx.background_spawn(async move {
+                doc_handle.with_document(|am| {
+                    let mut ac = AutoCommit::load(&am.save())?;
+                    reconcile(&mut ac, &document)?;
+                    info!(?document, "Wrote new message to Automerge");
                     anyhow::Ok(())
-                })
-                .detach_and_log_err(cx);
-            }))
-            .child(self.input_editor.clone())
+                })?;
+                anyhow::Ok(())
+            })
+            .await?;
+            //
+            anyhow::Ok(())
+        })
+        .detach_and_log_err(cx);
     }
 }
 
@@ -238,6 +278,8 @@ impl Item for ChatUi {
     type Event = ChatEvent;
 
     fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
-        SharedString::from(self.endpoint_id.to_string())
+        let mut string = self.endpoint_id.to_string();
+        let suffix = string.split_off(string.len() - 8);
+        suffix.into()
     }
 }

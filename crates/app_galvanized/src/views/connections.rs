@@ -271,50 +271,21 @@ impl ConnectionsUi {
     fn open_chat(
         &mut self,
         endpoint_id: EndpointId,
-        e: &ClickEvent,
+        _e: &ClickEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let window_handle = window.window_handle();
         cx.spawn_in(window, async move |this_weak, cx| {
-            let doc = cx.iroh().create_doc(cx).await?;
+            let Some(peer_state) = cx.iroh().galvanized().peer_state(&endpoint_id) else {
+                bail!("Cannot open chat, not connected to peer");
+            };
+            let doc_handle = peer_state.read().unwrap().create_or_open_doc(cx).await?;
+            info!("Successfully got doc_handle for peer");
+            // let doc_handle = cx.iroh().create_doc(cx).await?;
 
-            cx.update_window(window_handle, |_it, window, cx| {
-                // info!("Updating Window on Create Chat");
-                // info!("Window entity ID: {:?}", it.entity_id());
-                // info!("Window entity type ID: {:?}", it.entity_type());
-
-                // // Debug what types we're dealing with
-                // let workspace_type_id = std::any::TypeId::of::<Workspace>();
-                // let panel_root_type_id = std::any::TypeId::of::<PanelRoot>();
-                // let connections_ui_type_id = std::any::TypeId::of::<Self>();
-
-                // info!("Workspace type ID: {:?}", workspace_type_id);
-                // info!("PanelRoot type ID: {:?}", panel_root_type_id);
-                // info!("ConnectionsUi type ID: {:?}", connections_ui_type_id);
-
-                // // Try different downcasts
-                // info!("Attempting to downcast to Workspace");
-                // if let Err(it) = it.downcast::<Workspace>() {
-                //     warn!("Not a Workspace");
-
-                //     if let Err(it) = it.downcast::<PanelRoot>() {
-                //         warn!("Not a PanelRoot");
-
-                //         if let Err(it) = it.downcast::<Self>() {
-                //             warn!("Not a ConnectionsUi");
-                //         };
-                //     };
-                // };
-
-                info!("Updating Window on Create Chat");
-
-                let this_entity = this_weak
-                    .upgrade()
-                    .ok_or_else(|| anyhow!("failed to upgrade WeakEntity<ConnectionUi>"))?;
-                let workspace = this_entity.read(cx).workspace.clone();
-
-                let chat_ui = cx.new(|cx| ChatUi::new(endpoint_id, doc, window, cx));
+            cx.update(|window, cx| {
+                let workspace = this_weak.read_with(cx, |it, cx| it.workspace.clone())?;
+                let chat_ui = cx.new(|cx| ChatUi::new(endpoint_id, doc_handle, window, cx));
                 workspace.update(cx, |workspace, cx| {
                     workspace.add_item_to_active_pane(Box::new(chat_ui), Some(0), true, window, cx);
                 });

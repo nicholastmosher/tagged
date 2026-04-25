@@ -14546,6 +14546,7 @@ dependencies = [
  "anyhow",
  "automerge",
  "autosurgeon",
+ "flume 0.12.0",
  "iroh",
  "plugin-iroh",
  "samod",

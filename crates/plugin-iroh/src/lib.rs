@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use anyhow::anyhow;
 use automerge::Automerge;
@@ -38,17 +38,16 @@ pub fn init(cx: &mut App) {
             .load()
             .await;
         let protocol_automerge = IrohSamod::new(endpoint.clone(), repo);
-        let protocol_tagged = TaggedProtocol::new();
+        let protocol_galvanized = GalvanizedProtocol::new();
         let router = Router::builder(endpoint.clone())
             .accept(IrohSamod::SYNC_ALPN, protocol_automerge.clone())
-            .accept(TaggedProtocol::ALPN, protocol_tagged.clone())
-            // .accept(IrohSamod::SYNC_ALPN, protocol_tagged.clone())
+            .accept(GalvanizedProtocol::ALPN, protocol_galvanized.clone())
             .spawn();
 
         let state = IrohState {
             endpoint,
             protocol_automerge,
-            protocol_tagged,
+            protocol_galvanized,
             router,
         };
 
@@ -81,7 +80,7 @@ pub struct Iroh {
 pub struct IrohState {
     endpoint: Endpoint,
     protocol_automerge: IrohSamod,
-    protocol_tagged: TaggedProtocol,
+    protocol_galvanized: GalvanizedProtocol,
     router: Router,
 }
 
@@ -103,7 +102,7 @@ impl Iroh {
         let state = self.state.as_ref()?;
 
         let remote_peers = state
-            .protocol_tagged
+            .protocol_galvanized
             .peer_state
             .iter()
             .map(|it| it.key().clone())
@@ -117,6 +116,7 @@ impl Iroh {
             return;
         };
 
+        // Outbound: Automerge sync (poll task)
         let addr = addr.into();
         Tokio::spawn(cx, {
             let addr = addr.clone();
@@ -130,6 +130,7 @@ impl Iroh {
         })
         .detach_and_log_err(cx);
 
+        // Outbound: GalvanizedProtocol connection
         Tokio::spawn(cx, {
             let addr = addr.clone();
             let state = state.clone();
@@ -138,19 +139,20 @@ impl Iroh {
                 // let conn_finished_reason = state.protocol_automerge.sync_with(addr).await?;
                 let connection = state
                     .endpoint
-                    .connect(addr.clone(), TaggedProtocol::ALPN)
+                    .connect(addr.clone(), GalvanizedProtocol::ALPN)
                     .await?;
                 state
-                    .protocol_tagged
+                    .protocol_galvanized
                     .peer_state
                     .entry(addr.id)
-                    .or_insert(Some(connection));
+                    .or_insert(Arc::new(RwLock::new(PeerState::new(connection))));
                 info!(?peer_id, "Connected TaggedProtocol");
                 anyhow::Ok(())
             }
         })
         .detach_and_log_err(cx);
 
+        // Inbound: Automerge sync (wait for connection)
         cx.spawn({
             let state = state.clone();
             async move |_cx| {
@@ -160,17 +162,21 @@ impl Iroh {
                     .when_connected(PeerId::from_string(addr.id.to_string()))
                     .await?;
 
-                state
-                    .protocol_tagged
-                    .peer_state
-                    .entry(addr.id)
-                    .or_insert(None);
+                // state
+                //     .protocol_tagged
+                //     .peer_state
+                //     .entry(addr.id)
+                //     .or_insert(None);
 
                 info!(peer_id = ?addr.id, "Connected to automerge-repo peer");
                 anyhow::Ok(())
             }
         })
         .detach_and_log_err(cx);
+    }
+
+    pub fn galvanized(&self) -> GalvanizedProtocol {
+        self.state.as_ref().unwrap().protocol_galvanized.clone()
     }
 
     pub fn create_doc<C: AppContext>(&self, cx: &mut C) -> Task<anyhow::Result<DocHandle>> {
@@ -211,12 +217,38 @@ impl Iroh {
 }
 
 #[derive(Debug, Clone)]
-struct TaggedProtocol {
+pub struct GalvanizedProtocol {
     // Connection state by remote peer EndpointId
-    peer_state: Arc<DashMap<EndpointId, Option<Connection>>>,
+    peer_state: Arc<DashMap<EndpointId, Arc<RwLock<PeerState>>>>,
 }
 
-impl TaggedProtocol {
+#[derive(derive_more::Debug)]
+pub struct PeerState {
+    connection: Connection,
+    #[debug("DocHandle")]
+    doc_handle: Option<DocHandle>,
+}
+
+impl PeerState {
+    fn new(connection: Connection) -> Self {
+        Self {
+            connection,
+            doc_handle: None,
+        }
+    }
+
+    pub fn create_or_open_doc<C: AppContext>(&self, cx: &mut C) -> Task<anyhow::Result<DocHandle>> {
+        if let Some(doc_handle) = self.doc_handle.clone() {
+            info!("Using existing document for peer");
+            return Task::ready(Ok(doc_handle));
+        }
+
+        info!("Creating new document for peer");
+        cx.iroh().create_doc(cx)
+    }
+}
+
+impl GalvanizedProtocol {
     const ALPN: &'static [u8] = b"/tagged/1";
 
     fn new() -> Self {
@@ -224,16 +256,22 @@ impl TaggedProtocol {
             peer_state: Arc::new(DashMap::new()),
         }
     }
+
+    pub fn peer_state(&self, endpoint_id: &EndpointId) -> Option<Arc<RwLock<PeerState>>> {
+        self.peer_state.get(endpoint_id).as_deref().cloned()
+    }
 }
 
-impl ProtocolHandler for TaggedProtocol {
+impl ProtocolHandler for GalvanizedProtocol {
     fn accept(
         &self,
-        connection: iroh::endpoint::Connection,
+        connection: Connection,
     ) -> impl Future<Output = Result<(), iroh::protocol::AcceptError>> + Send {
         async move {
             let remote_id = connection.remote_id();
-            self.peer_state.entry(remote_id).or_insert(Some(connection));
+            self.peer_state
+                .entry(remote_id)
+                .or_insert(Arc::new(RwLock::new(PeerState::new(connection))));
             //
             Ok(())
         }
