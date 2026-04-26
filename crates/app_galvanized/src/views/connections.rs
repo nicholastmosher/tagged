@@ -26,7 +26,7 @@ use zed::unstable::{
 
 use crate::Ticket;
 use plugin_chat::ChatUi;
-use plugin_iroh::IrohExt as _;
+use plugin_p2p::P2pExt as _;
 
 struct GlobalWorkspace(Entity<Workspace>);
 impl Global for GlobalWorkspace {}
@@ -82,7 +82,7 @@ impl ConnectionsUi {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let endpoint_id = cx.iroh().endpoint_id().ok();
+        let endpoint_id = cx.p2p().endpoint_id().ok();
 
         v_flex()
             //
@@ -190,7 +190,7 @@ impl ConnectionsUi {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         // let peers = cx.iroh().galvanized().remote_peers();
-        let peers = cx.iroh().galvanized().ok().map(|gzed| gzed.remote_peers());
+        let peers = cx.p2p().galvanized().ok().map(|gzed| gzed.remote_peers());
 
         div()
             .size_full()
@@ -270,7 +270,7 @@ impl ConnectionsUi {
         };
 
         cx.spawn(async move |_this, cx| {
-            let Some(gzed) = cx.iroh().galvanized().ok() else {
+            let Some(gzed) = cx.p2p().galvanized().ok() else {
                 bail!("Iroh not yet initialized");
             };
             gzed.connect(addr).await?;
@@ -299,7 +299,7 @@ impl ConnectionsUi {
     ) {
         cx.spawn_in(window, async move |this_weak, cx| {
             let gzed = cx
-                .iroh()
+                .p2p()
                 .galvanized()
                 .context("Iroh not initialized when trying to open chat")?;
 

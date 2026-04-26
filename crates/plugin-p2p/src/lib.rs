@@ -11,10 +11,7 @@ use iroh::{
     protocol::{AcceptError, ProtocolHandler, Router},
 };
 use iroh_repo::IrohSamod;
-use samod::{
-    DocHandle, DocumentId, PeerId,
-    storage::{InMemoryStorage, TokioFilesystemStorage},
-};
+use samod::{DocHandle, DocumentId, PeerId, storage::TokioFilesystemStorage};
 use serde::{Deserialize, Serialize};
 use tokio::runtime::Handle;
 use tokio_util::codec::{Decoder, Framed, LengthDelimitedCodec};
@@ -31,12 +28,12 @@ use zed::unstable::{
 pub mod codec;
 pub mod iroh_repo;
 
-// --- Iroh Plugin API
+// --- P2p Plugin API
 
 pub fn init(cx: &mut App) {
-    let iroh = Iroh::new(cx);
+    let iroh = P2pCx::new(cx);
     let iroh_entity = iroh.entity.clone();
-    cx.set_global(GlobalIroh(iroh_entity.clone()));
+    cx.set_global(GlobalP2p(iroh_entity.clone()));
 
     let tokio_handle = Tokio::handle(cx);
     cx.spawn(async move |cx| {
@@ -63,7 +60,7 @@ pub fn init(cx: &mut App) {
             .accept(GalvanizedProtocol::ALPN, protocol_galvanized.clone())
             .spawn();
 
-        let state = IrohState {
+        let state = P2pState {
             endpoint,
             protocol_automerge,
             protocol_galvanized,
@@ -79,37 +76,37 @@ pub fn init(cx: &mut App) {
     .detach_and_log_err(cx);
 }
 
-struct GlobalIroh(Entity<IrohEntity>);
-impl Global for GlobalIroh {}
-pub trait IrohExt {
+struct GlobalP2p(Entity<P2pEntity>);
+impl Global for GlobalP2p {}
+pub trait P2pExt {
     type Context: AppContext;
-    fn iroh(&mut self) -> Iroh<'_, Self::Context>;
+    fn p2p(&mut self) -> P2pCx<'_, Self::Context>;
 }
-impl<C: AppContext> IrohExt for C {
+impl<C: AppContext> P2pExt for C {
     type Context = C;
-    fn iroh(&mut self) -> Iroh<'_, C> {
-        let entity = self.read_global::<GlobalIroh, _>(|it, _cx| it.0.clone());
-        Iroh { cx: self, entity }
+    fn p2p(&mut self) -> P2pCx<'_, C> {
+        let entity = self.read_global::<GlobalP2p, _>(|it, _cx| it.0.clone());
+        P2pCx { cx: self, entity }
     }
 }
 
 /// Entrypoint to the GPUI-style API for Iroh/p2p operations
-pub struct Iroh<'a, C: AppContext> {
+pub struct P2pCx<'a, C: AppContext> {
     cx: &'a mut C,
-    entity: Entity<IrohEntity>,
+    entity: Entity<P2pEntity>,
 }
 
 #[derive(Clone)]
-pub struct IrohEntity {
-    state: Option<IrohState>,
+pub struct P2pEntity {
+    state: Option<P2pState>,
 }
 
-impl<'a, C: AppContext> Iroh<'a, C> {
+impl<'a, C: AppContext> P2pCx<'a, C> {
     /// Instantiate a new Iroh instance with an uninitialized endpoint
-    fn new(cx: &'a mut C) -> Iroh<'a, C> {
-        let inner = IrohEntity { state: None };
+    fn new(cx: &'a mut C) -> P2pCx<'a, C> {
+        let inner = P2pEntity { state: None };
         let entity = cx.new(|_| inner);
-        Iroh { cx, entity }
+        P2pCx { cx, entity }
     }
 
     pub fn endpoint_id(&self) -> Result<EndpointId> {
@@ -138,7 +135,7 @@ impl<'a, C: AppContext> Iroh<'a, C> {
 }
 
 #[derive(Clone)]
-pub struct IrohState {
+pub struct P2pState {
     endpoint: Endpoint,
     protocol_automerge: IrohSamod,
     protocol_galvanized: GalvanizedProtocol,

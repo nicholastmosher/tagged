@@ -6854,7 +6854,7 @@ dependencies = [
  "iroh-gossip",
  "plugin-calendar",
  "plugin-chat",
- "plugin-iroh",
+ "plugin-p2p",
  "plugin-willow",
  "rand 0.9.2",
  "rand_core 0.6.4",
@@ -14546,14 +14546,14 @@ dependencies = [
  "autosurgeon",
  "flume 0.12.0",
  "iroh",
- "plugin-iroh",
+ "plugin-p2p",
  "samod",
  "tracing",
  "zed",
 ]
 
 [[package]]
-name = "plugin-iroh"
+name = "plugin-p2p"
 version = "0.1.0"
 dependencies = [
  "anyhow",

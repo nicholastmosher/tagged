@@ -14,7 +14,7 @@ async fn main() {
         // .add_plugins(zed::init)
         // .add_plugins(plugin_calendar::init)
         // .add_plugins(plugin_chat::init)
-        // .add_plugins(plugin_iroh::init)
+        // .add_plugins(plugin_p2p::init)
         // .add_plugins(plugin_willow::init)
         .run();
 }

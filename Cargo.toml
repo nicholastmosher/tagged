@@ -54,7 +54,7 @@ zed = { git = "https://github.com/nicholastmosher/zed", branch = "first-class-pl
 # csh-demo = { path = "crates/csh-demo" }
 plugin-calendar = { path = "crates/plugin-calendar" }
 plugin-chat = { path = "crates/plugin-chat" }
-plugin-iroh = { path = "crates/plugin-iroh" }
+plugin-p2p = { path = "crates/plugin-p2p" }
 plugin-willow = { path = "crates/plugin-willow" }
 
 # iroh-automerge = { path = "crates/iroh-automerge" }
