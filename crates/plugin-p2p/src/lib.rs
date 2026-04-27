@@ -200,17 +200,20 @@ impl GalvanizedProtocol {
 
     /// Creates a shared document with the given peer, or opens an existing one if it exists.
     pub async fn create_or_open_doc(&self, peer: &EndpointId) -> Result<DocHandle> {
-        // Connect task needs continuous polling on a task
-        let _join_handle = self.tokio_handle.spawn({
-            let addr = EndpointAddr::from(*peer);
-            let automerge = self.protocol_automerge.clone();
-            async move {
-                info!("Starting outbound Automerge sync_with");
-                if let Some(finished_reason) = automerge.sync_with(addr).await.log_err() {
-                    info!(?finished_reason, "Sync finished");
-                }
-            }
-        });
+        let addr = EndpointAddr::from(*peer);
+        let _dialer_handle = self.protocol_automerge.dial_peer(addr)?;
+
+        // // Connect task needs continuous polling on a task
+        // let _join_handle = self.tokio_handle.spawn({
+        //     let addr = EndpointAddr::from(*peer);
+        //     let automerge = self.protocol_automerge.clone();
+        //     async move {
+        //         info!("Starting outbound Automerge sync_with");
+        //         if let Some(finished_reason) = automerge.dial_peer(addr).await.log_err() {
+        //             info!(?finished_reason, "Sync finished");
+        //         }
+        //     }
+        // });
 
         self.protocol_automerge
             .repo()
