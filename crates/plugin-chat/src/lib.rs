@@ -15,7 +15,7 @@ use zed::unstable::{
         ActiveTheme, App, Context, InteractiveElement as _, IntoElement, ParentElement, Render,
         RenderOnce, SharedString, Styled, Window, div, v_flex,
     },
-    util::ResultExt,
+    util::{ResultExt, TryFutureExt},
     workspace::Item,
 };
 
@@ -143,24 +143,28 @@ impl ChatUi {
             let doc_handle = doc_handle.clone();
             async move |this, cx| {
                 let (tx, rx) = flume::bounded(10);
-                cx.background_spawn(async move {
-                    info!(doc_id = ?doc_handle.document_id(), "Starting Automerge listen loop");
+                cx.background_spawn(
+                    async move {
+                        info!(doc_id = ?doc_handle.document_id(), "Starting Automerge listen loop");
 
-                    let mut doc_stream = doc_handle.changes();
-                    while let Some(changes) = doc_stream.next().await {
-                        info!(?changes, "Received Automerge update for Chat");
+                        let mut doc_stream = doc_handle.changes();
+                        while let Some(changes) = doc_stream.next().await {
+                            info!(?changes, "Received Automerge update for Chat");
 
-                        doc_handle.with_document(|am| {
-                            // let ac = AutoCommit::load(&automerge.save())?;
-                            let chat_document: ChatDocument = hydrate(am)?;
-                            tx.send(chat_document).log_err();
-                            info!("Automerge document listen loop sent update to UI");
-                            anyhow::Ok(())
-                        })?;
+                            doc_handle.with_document(|am| {
+                                // let ac = AutoCommit::load(&automerge.save())?;
+                                let chat_document: ChatDocument = hydrate(am)?;
+                                tx.send(chat_document).log_err();
+                                info!("Automerge document listen loop sent update to UI");
+                                anyhow::Ok(())
+                            })?;
+                        }
+
+                        info!("Leaving Doc Change loop");
+                        anyhow::Ok(())
                     }
-
-                    anyhow::Ok(())
-                })
+                    .log_err(),
+                )
                 .detach();
 
                 let mut rx_stream = rx.into_stream();
