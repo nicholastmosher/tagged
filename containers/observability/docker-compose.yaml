@@ -1,0 +1,86 @@
+version: "3.8"
+
+services:
+  # OpenTelemetry Collector - central telemetry router
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+    command: ["--config", "/etc/otelcol/config.yaml"]
+    volumes:
+      - ./collector-config.yaml:/etc/otelcol/config.yaml
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+    networks:
+      - observability
+    depends_on:
+      - tempo
+      # - loki
+
+      # Grafana Tempo - distributed tracing backend
+  tempo:
+    image: grafana/tempo:latest
+    container_name: tempo
+    command: ["-config.file=/etc/tempo/config.yaml"]
+    volumes:
+      - ./tempo-config.yaml:/etc/tempo/config.yaml
+      - tempo-data:/var/tempo
+    ports:
+      - "3200:3200" # Tempo API
+    networks:
+      - observability
+
+  # Grafana Loki - log aggregation backend
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    command: ["-config.file=/etc/loki/config.yaml"]
+    volumes:
+      - ./loki-config.yaml:/etc/loki/config.yaml
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - observability
+
+  # Prometheus - metrics storage and query
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yaml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - observability
+
+  # Grafana - visualization and dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    volumes:
+      - ./grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - observability
+    depends_on:
+      - tempo
+      - prometheus
+      # - loki
+
+volumes:
+  tempo-data:
+  loki-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  observability:
+    driver: bridge

@@ -9,7 +9,8 @@ use std::{ops::Not, path::PathBuf};
 
 use anyhow::{Context as _, anyhow, bail};
 use iroh::{EndpointAddr, EndpointId};
-use tracing::info;
+use opentelemetry::metrics::Counter;
+use tracing::{info, instrument};
 use zed::unstable::{
     editor::Editor,
     gpui::{AppContext as _, ClickEvent, ClipboardItem, Entity, Global, KeyDownEvent, img},
@@ -24,7 +25,7 @@ use zed::unstable::{
     workspace::Workspace,
 };
 
-use crate::Ticket;
+use crate::{Ticket, observability::MetricsExt};
 use plugin_chat::ChatUi;
 use plugin_p2p::P2pExt as _;
 
@@ -43,6 +44,8 @@ pub struct ConnectionsUi {
     input_local_name: Entity<InputField>,
     input_ticket: Entity<Editor>,
     workspace: Entity<Workspace>,
+
+    chat_count: Counter<u64>,
 }
 
 impl ConnectionsUi {
@@ -54,10 +57,13 @@ impl ConnectionsUi {
         });
         let input_local_name = cx.new(|cx| InputField::new(window, cx, "Local peer name"));
         let workspace = cx.global::<GlobalWorkspace>().0.clone();
+
+        let chat_count = cx.meter().u64_counter("chats_opened").build();
         Self {
             input_ticket,
             input_local_name,
             workspace,
+            chat_count,
         }
     }
 }
@@ -291,6 +297,7 @@ impl ConnectionsUi {
         // });
     }
 
+    #[instrument(skip_all)]
     fn open_chat(
         &mut self,
         endpoint_id: EndpointId,

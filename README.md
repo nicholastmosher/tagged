@@ -185,7 +185,24 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 April 30
+
+- Added a quick docker-compose based observability stack for development
+- To run: `(cd containers/observability; docker compose up)`
+- Find Grafana on [localhost:3000](http://localhost:3000)
+- Need to determine standard way to distinguish between multiple instances
+  - Uuid on startup? Does Zed have an instance identifier already?
+
 # 2026 April 28
+
+> pm
+
+- I need to get to the bottom of this iroh/samod interaction, and figure out why it's not working
+- Debugging methods:
+  - Start applying tracing and getting used to viewing the trace data
+  - Dig further into samod's source and learn the logic flow to better understand the behavior
+
+> am
 
 - I was feeling quite close to having an Automerge-backed Chat working
 - Everything was wired up, then I noticed `samod` throwing erros about protocol problems
