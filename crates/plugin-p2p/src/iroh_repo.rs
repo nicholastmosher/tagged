@@ -5,6 +5,7 @@
 use std::{
     collections::BTreeSet,
     error::Error,
+    io::ErrorKind,
     sync::{Arc, Mutex},
 };
 
@@ -96,10 +97,11 @@ impl IrohSamod {
     ///
     /// [`EndpointId`]: iroh::EndpointId
     /// [`PeerId`]: samod::PeerId
-    pub fn dial_peer(&self, addr: impl Into<iroh::EndpointAddr>) -> Result<DialerHandle> {
+    pub async fn dial_peer(&self, addr: impl Into<iroh::EndpointAddr>) -> Result<DialerHandle> {
         let dialer = Arc::new(IrohDialer::new(self.endpoint.clone(), addr.into()));
         debug!("IrohSamod dial_peer starting");
         let dialer_handle = self.repo().dial(BackoffConfig::default(), dialer)?;
+        let _peer_info = dialer_handle.established().await?;
         info!("IrohSamod finished dialing");
         Ok(dialer_handle)
     }
@@ -140,15 +142,32 @@ impl ProtocolHandler for IrohSamod {
             .expect("valid URL");
         // let acceptor = AcceptorHandle::accept_tokio_io(&self, io);
         let (send, recv) = connection.accept_bi().await?;
-        let io = tokio::io::join(recv, send);
         let acceptor = self
             .repo()
             .make_acceptor(url)
             .map_err(|error| AcceptError::from_err(error))?;
-        let connection_handle = acceptor
-            .accept_tokio_io(io)
-            .map_err(|error| AcceptError::from_err(error))?;
+
+        let sink = FramedWrite::new(send, Codec::new(connection.remote_id()));
+        let stream = FramedRead::new(recv, Codec::new(connection.remote_id()));
+        let transport = Transport::new(stream, sink);
+        let connection_handle = acceptor.accept(transport).map_err(AcceptError::from_err)?;
+
+        // let io = tokio::io::join(recv, send);
+        // let connection_handle = acceptor
+        //     .accept_tokio_io(io)
+        //     .map_err(|error| AcceptError::from_err(error))?;
+
         info!("Accepted: got connection handle");
+
+        let _peer_info = connection_handle
+            .handshake_complete()
+            .await
+            .map_err(|_error| {
+                AcceptError::from_err(std::io::Error::new(
+                    ErrorKind::NotConnected,
+                    "failed to accept connection",
+                ))
+            })?;
 
         // let endpoint_id = connection.remote_id();
         // let (send, recv) = connection.accept_bi().await?;
@@ -220,9 +239,13 @@ impl Dialer for IrohDialer {
         Box::pin(async move {
             let alpn = IrohSamod::SYNC_ALPN;
             let connection = endpoint.connect(remote_addr, alpn).await?;
-            let (sender, receiver) = connection.open_bi().await?;
-            let read_write = tokio::io::join(receiver, sender);
-            let transport = Transport::from_tokio_io(read_write);
+            let (send, recv) = connection.open_bi().await?;
+
+            let sink = FramedWrite::new(send, Codec::new(connection.remote_id()));
+            let stream = FramedRead::new(recv, Codec::new(connection.remote_id()));
+            let transport = Transport::new(stream, sink);
+            // let io = tokio::io::join(recv, send);
+            // let transport = Transport::from_tokio_io(io);
             Ok(transport)
         })
     }

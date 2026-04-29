@@ -205,7 +205,8 @@ impl GalvanizedProtocol {
     pub async fn create_or_open_doc(&self, peer: &EndpointId) -> Result<DocHandle> {
         let addr = EndpointAddr::from(*peer);
         info!(?peer, "create_or_open_doc: Dialing peer");
-        let _connection_handle = self.protocol_automerge.dial_peer(addr)?;
+        let _connection_handle = self.protocol_automerge.dial_peer(addr).await?;
+        info!("create_or_open_doc: Dialer established connection");
 
         // // Connect task needs continuous polling on a task
         // let _join_handle = self.tokio_handle.spawn({
@@ -234,6 +235,11 @@ impl GalvanizedProtocol {
                 .with_context(|| format!("read: No Peer State for {peer}"))?;
 
             if let Some(doc_handle) = peer_read.doc_handle.clone() {
+                info!(
+                    peer_endpoint_id = ?peer,
+                    doc_id = ?doc_handle.document_id(),
+                    "Found existing Doc for peer",
+                );
                 return Ok(doc_handle);
             }
         }
@@ -363,7 +369,7 @@ impl GalvanizedProtocol {
                 let Some(doc_handle) = maybe_doc else {
                     bail!("failed to find Automerge document peer={peer} doc_id={doc_id:?}");
                 };
-                info!("Accept: Found Automerge document!");
+                info!(doc_id = ?doc_handle.document_id(), "Accept: Found Automerge document!");
 
                 let Some(mut peer_state) = peer_state.get_mut(&peer) else {
                     bail!("Missing PeerState for peer {peer}");

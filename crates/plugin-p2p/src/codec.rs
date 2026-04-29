@@ -20,7 +20,9 @@ impl Codec {
     pub(crate) fn new(remote_endpoint_id: iroh::EndpointId) -> Self {
         Self {
             remote_endpoint_id,
-            inner: LengthDelimitedCodec::new(), // using default values
+            inner: LengthDelimitedCodec::builder()
+                .max_frame_length(8 * 1024 * 1024 * 1024)
+                .new_codec(), // using default values
         }
     }
 }

@@ -3,6 +3,7 @@ use autosurgeon::{Hydrate, Reconcile, hydrate, reconcile};
 use iroh::EndpointId;
 use samod::DocHandle;
 use tracing::info;
+use uuid::Uuid;
 /// ChatUi is a `Workspace` item, rendering into the tab window
 use zed::unstable::{
     db::smol::stream::StreamExt as _,
@@ -101,6 +102,8 @@ impl ChatDocument {
 #[derive(Debug, Clone, Hydrate, Reconcile)]
 pub struct ChatMessage {
     //
+    #[key]
+    id: Uuid,
     sender_id: String,
     sender_name: String,
     body: String,
@@ -113,6 +116,7 @@ impl ChatMessage {
         message: impl Into<String>,
     ) -> Self {
         Self {
+            id: Uuid::new_v4(),
             sender_id: sender_id.into(),
             sender_name: sender_name.into(),
             body: message.into(),
