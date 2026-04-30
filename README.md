@@ -24,6 +24,7 @@ An experiment to put human beings back in charge of their own data.
     anniversary this year! These are my notes from before the seminar, and include a practical
     introduction to writing GPUI plugins.
 - [Plugin Ideas](#plugin-ideas)
+- [Observability setup](#2026-april-30)
 
 ## Introduction
 
@@ -186,6 +187,61 @@ code, but I found that I lost a lot of ideas that way. So these days I prefer to
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
 # 2026 April 30
+
+> pm
+
+General Update:
+
+The current arc I'm working on right now is trying to get an end-to-end chat
+interface working, powered by Automerge documents. I'm stuck on a problem where
+it seems like `samod` is not successfully syncing documents with a peer over a
+pre-established byte stream, specifically Iroh. I think solving this would
+unblock a lot of cool prototyping for app ideas. Having custom live data sharing
+for the price of one struct definition and one render function sounds like fun
+to me.
+
+The immediate followup question is how to integrate all of this with Willow,
+which is a data store that I want to have an easy but user-oriented interface
+for securing and permissioning personal data. I think of Willow like having a
+vault for yourself and for every group of humans you share a namespace with.
+Like having group chats but they also each include a full shared filesystem.
+
+Earlier today I added some observability tools to the repo, we've got a
+docker-compose that spins up grafana for dashboards, prometheus for metrics,
+tempo for tracing, and loki for logging.
+
+To use it, just run `(cd containers/observability; docker compose up)`, then
+go to [localhost:3000](http://localhost:3000) to open Grafana. Grafana knowledge
+not included, but feel free to ask questions.
+
+So I'm hopefully going to be putting some instrumentation in here and maybe
+using that to solve this automerge-reop sync problem, so far I can't tell what
+I'm doing wrong.
+
+Here's the workflow I'm using to test this so far:
+
+- `cargo run` in two terminals to launch two instances of the app
+- Copy peer ticket from one, paste in the other
+- They should see each other and a list item appears
+- Clicking the list item of the other peer opens a chat tab
+- In the chat tab, typing in the input and pressing enter
+- On enter, I see the message locally but I'd expect the document to sync and
+  appear on the remote peer, and it doesn't
+- I think I've seen error logs from `samod` before, so that's where I'm looking
+
+---
+
+Today update
+
+- Working on observability
+- Was going to leave loki behind because it was harder to configure at first
+- Ended up circling back and finishing the loki setup
+- So now we've got a "full" view with Grafana, traces, metrics, and logs
+- I'll need to learn the best way to use these to help guide the system design
+- I need to learn more about what kinds of metrics to start keeping
+- I want to learn about data visualization and animation in general, easements, etc.
+
+> am
 
 - Added a quick docker-compose based observability stack for development
 - To run: `(cd containers/observability; docker compose up)`
@@ -484,13 +540,12 @@ out how to sync things just right.
 - Call list reminders: interactive checklist that sorts by least recently contacted
   - Compose with Timers or Alarms to get reminders to call folks again
 - Element wrapper that rotates arbitrary elements
-  - I want sideways tabs with words like jetbrains and vscode
+  - I want sideways tabs with words, like jetbrains and vscode have
   - Then I think there's no need for panels, just items with tabs that can go around
     any split on screen
 - Overlay/HUD? toggle popover desktop, like steam overlay. 
 - Store disk usage analyzer for Willow
 - Willow full well-polished plugin and UI
-- 
 
 Today I want to work on Automerge stuff again.
 
@@ -523,11 +578,7 @@ Reasons to make every subspace key a valid owned namespace key:
 - So a user's subspace key allows their identity to become the guardian of a user's secure, persisted metadata
 - Could be a good spot for an audit log to be maintained, though there'd need to be a cleanup policy e.g. rolling over time
 
-# 2026 April 15
-
-Claim hash: make an assertion about a data structure after calculating and then viewing it,
-then hash that data structure and use the hash as the name. This is content addressing, but
-consider using it as a form of distributed compute memoization or caching. 
+> future me: I still think this idea is curious but I'm not planning on doing anything with it so far
 
 # 2026 April 14
 
@@ -561,6 +612,8 @@ If this works, it means we can use blanket impls as a way to trait-mark plugins 
 other plugins to be installed.
 
 - Tested, it does in fact work
+
+> future me: actually I have not yet seen any case where this is needed
 
 # 2026 April 13
 
@@ -710,7 +763,7 @@ and even applications. Think about that: Many apps we use are practically
 custom skins over the same core set of data types. If we created a common solution
 for our data needs - storage, transmission, sharing, and protection - we could
 build an ecosystem of applications that put users in control of their own data.
-Apps would practically just need define data types and how to render them, and the
+Apps would practically just need to define data types and how to render them, and the
 rest could be taken care of by the framework.
 
 ## Getting Started
@@ -796,7 +849,7 @@ and through it you can read and update the state of the app, or add or remove be
 
 Remember that GPUI is a desktop framework to build Zed, and one of Zed's explicit goals
 is performance. Zed has been demonstrated to run at 120fps, which feels amazing compared
-to editors with more latency (like, all of them).
+to editors with more latency.
 
 Let's talk about state management in GPUI, which comes in two forms: Globals and Entities.
 
