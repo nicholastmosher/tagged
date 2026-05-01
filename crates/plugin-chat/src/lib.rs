@@ -151,12 +151,20 @@ impl ChatUi {
                     async move {
                         info!(doc_id = ?doc_handle.document_id(), "Starting Automerge listen loop");
 
+                        // 1) Hydrate the initial state of the document
+                        doc_handle.with_document(|am| {
+                            let chat_document: ChatDocument = hydrate(am)?;
+                            tx.send(chat_document).log_err();
+                            info!("ChatUi: Hydrated initial state of document");
+                            anyhow::Ok(())
+                        })?;
+
+                        // 2) Watch the change stream and re-hydrate the document on each update
                         let mut doc_stream = doc_handle.changes();
                         while let Some(changes) = doc_stream.next().await {
                             info!(?changes, "Received Automerge update for Chat");
 
                             doc_handle.with_document(|am| {
-                                // let ac = AutoCommit::load(&automerge.save())?;
                                 let chat_document: ChatDocument = hydrate(am)?;
                                 tx.send(chat_document).log_err();
                                 info!("Automerge document listen loop sent update to UI");
@@ -174,9 +182,10 @@ impl ChatUi {
                 let mut rx_stream = rx.into_stream();
                 while let Some(chat_document) = rx_stream.next().await {
                     info!("Automerge UI listen loop received update");
-                    this.update(cx, |this, _cx| {
+                    this.update(cx, |this, cx| {
                         // Update the UI's document with the new chat document
                         this.document = chat_document;
+                        cx.notify();
                         info!("Applied Automerge update to ChatUI");
                     })?;
                 }
@@ -264,8 +273,9 @@ impl ChatUi {
         cx.spawn(async move |_ui, cx| {
             cx.background_spawn(async move {
                 doc_handle.with_document(|am| {
-                    let mut ac = AutoCommit::load(&am.save())?;
-                    reconcile(&mut ac, &document)?;
+                    let mut tx = am.transaction();
+                    reconcile(&mut tx, &document)?;
+                    let (_change_hash, _patch_log) = tx.commit();
                     info!(?document, "Wrote new message to Automerge");
                     anyhow::Ok(())
                 })?;

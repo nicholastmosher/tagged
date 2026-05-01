@@ -10,21 +10,16 @@ use std::{
 };
 
 use crate::codec::Codec;
-use anyhow::{Result, anyhow};
-use futures::{Stream, StreamExt as _, future::BoxFuture, stream::BoxStream};
+use anyhow::Result;
+use futures::future::BoxFuture;
 use iroh::{
-    Endpoint, EndpointAddr, EndpointId,
+    Endpoint, EndpointAddr,
     endpoint::Connection,
     protocol::{AcceptError, ProtocolHandler},
 };
-use samod::{
-    AcceptorEvent, AcceptorHandle, BackoffConfig, ConnDirection, ConnFinishedReason,
-    ConnectionHandle, Dialer, DialerHandle, PeerId, Repo, Transport, Url,
-    storage::TokioFilesystemStorage, transport::BoxSink,
-};
-use tokio_util::codec::{Framed, FramedRead, FramedWrite, LengthDelimitedCodec};
-use tracing::{debug, field::debug, info};
-use zed::unstable::gpui::{App, AsyncApp, Global};
+use samod::{BackoffConfig, Dialer, DialerHandle, Repo, Transport, Url};
+use tokio_util::codec::{FramedRead, FramedWrite};
+use tracing::{debug, info};
 
 // pub fn init(cx: &mut App) {
 //     cx.set_global(GlobalIrohRepo(None));
@@ -57,14 +52,6 @@ use zed::unstable::gpui::{App, AsyncApp, Global};
 //     })
 //     .detach();
 // }
-
-pub struct GlobalIrohRepo(pub Option<Arc<IrohRepository>>);
-impl Global for GlobalIrohRepo {}
-
-pub struct IrohRepository {
-    pub proto: IrohSamod,
-    // pub router: iroh::protocol::Router,
-}
 
 /// Combines an [`iroh::Endpoint`] with a [`Repo`] (automerge repository) and
 /// implements [`iroh::protocol::ProtocolHandler`] to accept incoming connections
@@ -106,25 +93,6 @@ impl IrohSamod {
         Ok(dialer_handle)
     }
 
-    // pub async fn dial_peer(&self, addr: impl Into<iroh::EndpointAddr>) -> Result<ConnectionHandle> {
-    //     let connection = self.endpoint.connect(addr, Self::SYNC_ALPN).await?;
-    //     let url = format!("iroh://{}", connection.remote_id())
-    //         .parse::<Url>()
-    //         .expect("valid URL");
-    //     // let acceptor = AcceptorHandle::accept_tokio_io(&self, io);
-    //     let (send, recv) = connection.open_bi().await?;
-    //     let io = tokio::io::join(recv, send);
-    //     let acceptor = self
-    //         .repo()
-    //         .make_acceptor(url)
-    //         .map_err(|error| AcceptError::from_err(error))?;
-    //     let connection_handle = acceptor
-    //         .accept_tokio_io(io)
-    //         .map_err(|error| AcceptError::from_err(error))?;
-
-    //     Ok(connection_handle)
-    // }
-
     /// Returns a reference to the stored [`Repo`] instance inside.
     pub fn repo(&self) -> &Repo {
         &self.repo
@@ -140,7 +108,7 @@ impl ProtocolHandler for IrohSamod {
         let url = format!("iroh://{}", connection.remote_id())
             .parse::<Url>()
             .expect("valid URL");
-        // let acceptor = AcceptorHandle::accept_tokio_io(&self, io);
+
         let (send, recv) = connection.accept_bi().await?;
         let acceptor = self
             .repo()
@@ -151,12 +119,6 @@ impl ProtocolHandler for IrohSamod {
         let stream = FramedRead::new(recv, Codec::new(connection.remote_id()));
         let transport = Transport::new(stream, sink);
         let connection_handle = acceptor.accept(transport).map_err(AcceptError::from_err)?;
-
-        // let io = tokio::io::join(recv, send);
-        // let connection_handle = acceptor
-        //     .accept_tokio_io(io)
-        //     .map_err(|error| AcceptError::from_err(error))?;
-
         info!("Accepted: got connection handle");
 
         let _peer_info = connection_handle
@@ -168,44 +130,8 @@ impl ProtocolHandler for IrohSamod {
                     "failed to accept connection",
                 ))
             })?;
+        info!("Acceptor handshake complete");
 
-        // let endpoint_id = connection.remote_id();
-        // let (send, recv) = connection.accept_bi().await?;
-        // {
-        //     // Connection established, update peers list
-        //     let mut lock = self.peers.lock().unwrap();
-        //     lock.insert(endpoint_id.clone());
-        // }
-
-        // let dialer = Arc::new(IrohDialer::new(, remote))
-        // self.repo().dial(BackoffConfig::default(), dialer)
-
-        // self.repo.make_acceptor(url)
-
-        // let dialer = TransportDialer;
-        // let dialer_handle = self
-        //     //
-        //     .repo
-        //     .dial(BackoffConfig::default(), Arc::new(dialer))
-        //     .map_err(AcceptError::from_err)?;
-
-        // tracing::info!("Samod starting inbound sync");
-        // let conn_finished = self
-        //     .repo
-        //     .connect(
-        //         FramedRead::new(recv, Codec::new(endpoint_id)),
-        //         FramedWrite::new(send, Codec::new(endpoint_id)),
-        //         ConnDirection::Incoming,
-        //     )
-        //     .await;
-
-        // {
-        //     // Connection closed, remove from peers list
-        //     let mut lock = self.peers.lock().unwrap();
-        //     lock.remove(&endpoint_id);
-        // }
-
-        // tracing::debug!(%endpoint_id, ?conn_finished, "Connection we accepted shut down");
         Ok(())
     }
 
@@ -244,8 +170,6 @@ impl Dialer for IrohDialer {
             let sink = FramedWrite::new(send, Codec::new(connection.remote_id()));
             let stream = FramedRead::new(recv, Codec::new(connection.remote_id()));
             let transport = Transport::new(stream, sink);
-            // let io = tokio::io::join(recv, send);
-            // let transport = Transport::from_tokio_io(io);
             Ok(transport)
         })
     }
