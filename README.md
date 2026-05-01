@@ -17,7 +17,7 @@ An experiment to put human beings back in charge of their own data.
 - [Introduction](#introduction)
 - [Getting Started](#getting-started)
 - [Project Vision and Values](#project-vision-and-values)
-- [CSH Seminar](#csh-seminar-first-class-plugins-for-gpui-and-zed-vision-for-tagged)
+- [CSH Seminar](#csh-seminar-plugins-for-gpui-and-zed-project-vision)
   - I gave a seminar on this project while visiting RIT's Computer Science House for it's 50th
     anniversary this year! These are my notes from before the seminar, and include a practical
     introduction to writing GPUI plugins.
