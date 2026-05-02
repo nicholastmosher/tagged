@@ -2,7 +2,7 @@ use automerge::AutoCommit;
 use autosurgeon::{Hydrate, Reconcile, hydrate, reconcile};
 use iroh::EndpointId;
 use samod::DocHandle;
-use tracing::info;
+use tracing::{debug, info, instrument};
 use uuid::Uuid;
 /// ChatUi is a `Workspace` item, rendering into the tab window
 use zed::unstable::{
@@ -207,14 +207,50 @@ impl Render for ChatUi {
             .child(
                 //
                 v_flex()
-                    .flex_grow()
                     //
-                    .p_2()
-                    .gap_2()
-                    .children(self.document.messages.iter().map(|message| {
+                    .child(
                         //
-                        ChatBubble::new(&message)
-                    })),
+                        v_flex()
+                            .size_full()
+                            //
+                            .p_4()
+                            .gap_2()
+                            .bg(cx.theme().colors().panel_background)
+                            .child(
+                                //
+                                div()
+                                    //
+                                    .text_xl()
+                                    .child(format!(
+                                        "Document ID: {}",
+                                        self.doc_handle.document_id()
+                                    )),
+                            )
+                            .child(
+                                //
+                                div()
+                                    //
+                                    .text_color(cx.theme().colors().text_muted)
+                                    .child({
+                                        //
+                                        let mut id = self.endpoint_id.to_string();
+                                        let id = id.split_off(id.len() - 8);
+                                        format!("Remote peer: {}", id)
+                                    }),
+                            ),
+                    )
+                    .child(
+                        //
+                        div()
+                            .flex_grow()
+                            //
+                            .p_2()
+                            .gap_2()
+                            .children(self.document.messages.iter().map(|message| {
+                                //
+                                ChatBubble::new(&message)
+                            })),
+                    ),
             )
             // Text input below
             .child(self.render_chat_input(window, cx))
@@ -250,15 +286,18 @@ impl ChatUi {
             )
     }
 
-    fn send_message(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+    #[instrument(skip_all)]
+    fn send_message(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let text = self.input_editor.read(cx).text(cx);
-        info!(text, "send_message");
+        debug!(text, "Begin send_message");
         if text.is_empty() {
             return;
         }
         let message = ChatMessage::new("ID", "Name", text);
         self.document.add_message(message);
-        info!("Added new message to local ChatUI");
+        self.input_editor
+            .update(cx, |it, cx| it.set_text("", window, cx));
+        debug!("Added new message to local ChatUI");
 
         let document = self.document.clone();
         let doc_handle = self.doc_handle.clone();

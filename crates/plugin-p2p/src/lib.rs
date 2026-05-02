@@ -46,11 +46,11 @@ pub fn init(cx: &mut App) {
 
         let automerge_repo = samod::Repo::build_tokio()
             .with_peer_id(PeerId::from_string(endpoint.id().to_string()))
-            // .with_storage(TokioFilesystemStorage::new(format!(
-            //     "{}/{}",
-            //     base_path,
-            //     endpoint.id(),
-            // )))
+            .with_storage(TokioFilesystemStorage::new(format!(
+                "{}/{}",
+                base_path,
+                endpoint.id(),
+            )))
             .with_storage(InMemoryStorage::new())
             .load()
             .await;
@@ -144,8 +144,6 @@ pub struct P2pState {
     protocol_galvanized: GalvanizedProtocol,
     router: Router,
 }
-
-// --- Galvanized Protocol
 
 #[derive(Debug, Clone)]
 pub struct GalvanizedProtocol {

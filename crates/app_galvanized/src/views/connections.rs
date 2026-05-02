@@ -8,9 +8,10 @@
 use std::{ops::Not, path::PathBuf};
 
 use anyhow::{Context as _, anyhow, bail};
+use hex::ToHex;
 use iroh::{EndpointAddr, EndpointId};
 use opentelemetry::metrics::Counter;
-use tracing::{info, instrument};
+use tracing::{debug, info, instrument};
 use zed::unstable::{
     editor::Editor,
     gpui::{AppContext as _, ClickEvent, ClipboardItem, Entity, Global, KeyDownEvent, img},
@@ -236,7 +237,7 @@ impl ConnectionsUi {
                                         let endpoint_id = *endpoint_id;
                                         cx.listener(move |this, e, window, cx| {
                                             //
-                                            info!(remote = ?endpoint_id, "Clicked open chat");
+                                            debug!(remote = ?endpoint_id, "Clicked open chat");
                                             this.open_chat(endpoint_id, e, window, cx);
                                         })
                                     })
