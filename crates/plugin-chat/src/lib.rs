@@ -151,15 +151,7 @@ impl ChatUi {
                     async move {
                         info!(doc_id = ?doc_handle.document_id(), "Starting Automerge listen loop");
 
-                        // 1) Hydrate the initial state of the document
-                        doc_handle.with_document(|am| {
-                            let chat_document: ChatDocument = hydrate(am)?;
-                            tx.send(chat_document).log_err();
-                            info!("ChatUi: Hydrated initial state of document");
-                            anyhow::Ok(())
-                        })?;
-
-                        // 2) Watch the change stream and re-hydrate the document on each update
+                        // Watch the change stream and re-hydrate the document on each update
                         let mut doc_stream = doc_handle.changes();
                         while let Some(changes) = doc_stream.next().await {
                             info!(?changes, "Received Automerge update for Chat");
