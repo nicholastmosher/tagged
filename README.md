@@ -184,6 +184,24 @@ later on. For a long time I never would write my ideas down unless it were well-
 code, but I found that I lost a lot of ideas that way. So these days I prefer to write things
 quickly and let it be a mess rather than be a perfectionist and never get ideas written down
 
+# 2026 May 1
+
+- The "Automerge/samod" problem I was having was actually a user-error,
+  it was pointed out to me (thank you) that I was using `.with_document(..)` and
+  `AutoCommit` incorrectly together. It seems to be working great now
+- Next todo: I have all the tools ready to build hopefully little pluggable
+  applets that compose, both in terms of API expression as well as visual
+  building blocks.
+- So now I get to get crafty with using the tools to build neat apps
+- I want to continue with chat on automerge, but I also need to nail down how
+  to make contacts first-class, and how to express the difference between
+  profiles (Willow subspaces) and nodes (Iroh/p2p endpoints).
+  - Down the road I want to look at making the p2p stack explicitly modular,
+    by adding a second implementation (probably libp2p) capable of 
+    meeting all the needs of the platform.
+  - It strikes me that GPUI-plugins might also be an awesome form-factor
+    of an interface for AtProto apps, could be fun to try
+
 # 2026 April 30
 
 > pm
