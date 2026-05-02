@@ -14,7 +14,7 @@ use zed::unstable::{
     },
     ui::{
         ActiveTheme, App, Context, InteractiveElement as _, IntoElement, ParentElement, Render,
-        RenderOnce, SharedString, Styled, Window, div, v_flex,
+        RenderOnce, SharedString, StatefulInteractiveElement, Styled, Window, div, v_flex,
     },
     util::{ResultExt, TryFutureExt},
     workspace::Item,
@@ -126,15 +126,11 @@ impl ChatMessage {
 
 impl ChatUi {
     pub fn new(
-        endpoint_id: EndpointId,
+        remote_id: EndpointId,
         doc_handle: DocHandle,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        // let messages = vec![
-        //     // ChatMessage::new("John", "Hey what's up?"),
-        //     // ChatMessage::new("Mary", "Nothing much"),
-        // ];
         let document = ChatDocument::new();
 
         let input_editor = cx.new(|cx| {
@@ -190,7 +186,7 @@ impl ChatUi {
         Self {
             document,
             doc_handle,
-            endpoint_id,
+            endpoint_id: remote_id,
             focus_handle: cx.focus_handle(),
             input_editor,
         }
@@ -241,7 +237,8 @@ impl Render for ChatUi {
                     )
                     .child(
                         //
-                        div()
+                        // The direct container of every child ChatBubble
+                        v_flex()
                             .flex_grow()
                             //
                             .p_2()
@@ -252,6 +249,7 @@ impl Render for ChatUi {
                             })),
                     ),
             )
+            .child(div().flex_grow())
             // Text input below
             .child(self.render_chat_input(window, cx))
     }

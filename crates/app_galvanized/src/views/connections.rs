@@ -210,13 +210,13 @@ impl ConnectionsUi {
                             //
                             .child("No remote peers")
                     })
-                    .when_some(peers, |el, peers| {
+                    .when_some(peers, |el, remotes| {
                         //
                         el
                             //
-                            .children(peers.iter().map(|endpoint_id| {
+                            .children(remotes.iter().map(|remote_id| {
                                 h_flex()
-                                    .id(format!("remote-peer-{endpoint_id}"))
+                                    .id(format!("remote-peer-{remote_id}"))
                                     //
                                     .p_2()
                                     .rounded_md()
@@ -230,20 +230,17 @@ impl ConnectionsUi {
                                             //
                                             .bg(cx.theme().colors().ghost_element_active)
                                     })
-                                    // Connect to the clicked peer
-                                    // - Create a document for the chat
-                                    // -
                                     .on_click({
-                                        let endpoint_id = *endpoint_id;
+                                        let remote_id = *remote_id;
                                         cx.listener(move |this, e, window, cx| {
                                             //
-                                            debug!(remote = ?endpoint_id, "Clicked open chat");
-                                            this.open_chat(endpoint_id, e, window, cx);
+                                            debug!(remote = ?remote_id, "Clicked open chat");
+                                            this.open_chat(remote_id, e, window, cx);
                                         })
                                     })
                                     .child({
                                         //
-                                        let mut string = endpoint_id.to_string();
+                                        let mut string = remote_id.to_string();
                                         let suffix = string.split_off(string.len() - 8);
                                         SharedString::from(suffix)
                                     })
@@ -285,23 +282,12 @@ impl ConnectionsUi {
             anyhow::Ok(())
         })
         .detach_and_log_err(cx);
-
-        // let chat = cx.new(|cx| ChatUi::new(endpoint_addr.id, window, cx));
-        // this.workspace.update(cx, |workspace, cx| {
-        //     workspace.add_item_to_active_pane(
-        //         Box::new(chat),
-        //         Some(0),
-        //         true,
-        //         window,
-        //         cx,
-        //     );
-        // });
     }
 
     #[instrument(skip_all)]
     fn open_chat(
         &mut self,
-        endpoint_id: EndpointId,
+        remote_id: EndpointId,
         _e: &ClickEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -312,7 +298,7 @@ impl ConnectionsUi {
                 .galvanized()
                 .context("Iroh not initialized when trying to open chat")?;
 
-            let doc_handle = gzed.create_or_open_doc(&endpoint_id).await?;
+            let doc_handle = gzed.create_or_open_doc(&remote_id).await?;
             info!(
                 doc_id = ?doc_handle.document_id(),
                 "Successfully got doc_handle for peer"
@@ -320,7 +306,7 @@ impl ConnectionsUi {
 
             cx.update(|window, cx| {
                 let workspace = this_weak.read_with(cx, |it, _cx| it.workspace.clone())?;
-                let chat_ui = cx.new(|cx| ChatUi::new(endpoint_id, doc_handle, window, cx));
+                let chat_ui = cx.new(|cx| ChatUi::new(remote_id, doc_handle, window, cx));
                 workspace.update(cx, |workspace, cx| {
                     workspace.add_item_to_active_pane(Box::new(chat_ui), Some(0), true, window, cx);
                 });
