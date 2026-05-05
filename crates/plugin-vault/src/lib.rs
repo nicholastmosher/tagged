@@ -1,13 +1,13 @@
 use std::{sync::Arc, time::Duration};
 
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result};
 use capsec::{CapProvider, CapRoot, TimedCap, root};
-use tokio::sync::oneshot;
-use tracing::{debug, field::debug, info};
+use tokio::sync::{broadcast, oneshot};
+use tracing::{debug, info};
 use zed::unstable::{
     gpui::{
-        self, AppContext, Bounds, Entity, Global, Task, TitlebarOptions, WindowBounds, WindowKind,
-        WindowOptions, actions, size,
+        self, AppContext, Bounds, Entity, Global, Task, TitlebarOptions, WindowBounds,
+        WindowHandle, WindowKind, WindowOptions, actions, size,
     },
     ui::{App, px},
     workspace::Workspace,
@@ -61,6 +61,7 @@ pub struct VaultState {
     root: CapRoot,
     repo: Arc<dyn DynSecretRepository>,
     vault_cap: Option<TimedCap<VaultAll>>,
+    pending_unlock: Option<broadcast::Sender<TimedCap<VaultAll>>>,
 }
 
 impl VaultState {
@@ -69,6 +70,7 @@ impl VaultState {
             root,
             repo: Arc::new(repo),
             vault_cap: None,
+            pending_unlock: None,
         }
     }
 }
@@ -90,12 +92,16 @@ pub struct VaultWrite;
 impl<'a> VaultCx<'a> {
     /// Time-bounded permission to full profile access
     pub fn unlock(&mut self) -> Task<Result<TimedCap<VaultAll>>> {
-        // Check if the vault is already unlocked
+        // Three possible states:
+        // 1) Vault is already unlocked, return cached capability
+        // 2) Vault is locked and no pending unlock exists, open a new unlock window
+        // 3) Vault is locked but a pending unlock exists, return the existing cap
+
+        // 1) Check if the vault is already unlocked
         {
-            let vault_cap = self.cx.read_entity(&self.state, |state, cx| {
-                //
-                state.vault_cap.clone()
-            });
+            let vault_cap = self
+                .cx
+                .read_entity(&self.state, |state, _cx| state.vault_cap.clone());
 
             if let Some(timed_cap) = vault_cap {
                 if timed_cap.is_active() {
@@ -106,45 +112,66 @@ impl<'a> VaultCx<'a> {
             }
         }
 
-        let (tx, rx) = oneshot::channel();
-        let bounds = Bounds::centered(None, size(px(300.), px(300.)), self.cx);
-        let titlebar = TitlebarOptions {
-            title: Some("Vault Unlock".into()),
-            appears_transparent: true,
-            ..Default::default()
-        };
-        let window_bounds = WindowBounds::Windowed(bounds);
-        let window_options = WindowOptions {
-            window_bounds: Some(window_bounds),
-            titlebar: Some(titlebar),
-            // window_background: WindowBackgroundAppearance::Transparent,
-            // kind: WindowKind::Floating,
-            kind: WindowKind::PopUp,
-            ..Default::default()
-        };
-        let result = self.cx.open_window(window_options, |window, cx| {
-            let vault = cx.new(|cx| VaultUnlockUi::new(tx, window, cx));
-            vault
-        });
-        let _window = match result {
-            Ok(window) => window,
-            Err(error) => return Task::ready(Err(anyhow!("failed to open window: {error}"))),
-        };
-
-        let entity = self.state.clone();
-        self.cx.spawn(async move |cx| {
-            rx.await.map_err(|_error| anyhow!("failed vault unlock"))?;
-            let cap = cx.read_entity(&entity, |state, _cx| state.root.grant());
-            // let duration = Duration::from_secs(60 * 10);
-            let duration = Duration::from_secs(30);
-            let timed_cap = TimedCap::new(cap, duration);
-
-            // Cache unlocked capability
-            cx.update_entity(&entity, |state, _cx| {
-                state.vault_cap = Some(timed_cap.clone());
+        // 2) If there's an open Unlock window, return a task subscribed to it
+        {
+            let pending_rx = self.cx.update_entity(&self.state, |state, _cx| {
+                state.pending_unlock.as_ref().map(|tx| tx.subscribe())
             });
-            anyhow::Ok(timed_cap)
-        })
+
+            // If an Unlock window is already open, return a task that yields the result
+            // In other words, only open one unlock window at a time
+            if let Some(mut pending_rx) = pending_rx {
+                info!("Unlock window already open, waiting for password");
+                let task = self.cx.spawn(async move |_cx| {
+                    let cap = pending_rx.recv().await?;
+                    anyhow::Ok(cap)
+                });
+
+                return task;
+            }
+        }
+
+        // 3) Open a new Unlock window
+        // - Oneshot from Unlock window -> Vault when password is accepted
+        // - Vault task grants and caches capability
+        // - Vault broadcasts capability to all waiting client tasks
+        let (unlock_tx, unlock_rx) = oneshot::channel();
+        let unlock_init_result = (|| {
+            let _window = self.open_unlock_window(unlock_tx)?;
+            let (tx, _rx) = broadcast::channel(1);
+            self.state.update(self.cx, |state, _cx| {
+                state.pending_unlock = Some(tx);
+            });
+            anyhow::Ok(())
+        })();
+
+        let state = self.state.clone();
+        let task = self.cx.spawn(async move |cx| {
+            // Propagate potential window error from above
+            unlock_init_result?;
+
+            // Wait for unlock to complete
+            unlock_rx.await?;
+
+            let cap = cx.update_entity(&state, |state, _cx| {
+                // Newly minted capability
+                let cap = state.root.grant::<VaultAll>();
+                let ttl = Duration::from_secs(10);
+                let cap = TimedCap::new(cap, ttl);
+                state.vault_cap = Some(cap.clone());
+
+                // Take the receiver, so future unlocks prompt a new window
+                if let Some(tx) = state.pending_unlock.take() {
+                    tx.send(cap.clone()).ok();
+                }
+
+                cap
+            });
+
+            anyhow::Ok(cap)
+        });
+
+        task
     }
 
     pub fn is_unlocked(&self) -> bool {
@@ -169,5 +196,34 @@ impl<'a> VaultCx<'a> {
             })
         });
         Ok(task)
+    }
+
+    fn open_unlock_window(
+        &mut self,
+        tx: oneshot::Sender<()>,
+    ) -> Result<WindowHandle<VaultUnlockUi>> {
+        let bounds = Bounds::centered(None, size(px(300.), px(300.)), self.cx);
+        let titlebar = TitlebarOptions {
+            title: Some("Vault Unlock".into()),
+            appears_transparent: true,
+            ..Default::default()
+        };
+        let window_bounds = WindowBounds::Windowed(bounds);
+        let window_options = WindowOptions {
+            window_bounds: Some(window_bounds),
+            titlebar: Some(titlebar),
+            // window_background: WindowBackgroundAppearance::Transparent,
+            // kind: WindowKind::Floating,
+            kind: WindowKind::PopUp,
+            ..Default::default()
+        };
+        let window = self
+            .cx
+            .open_window(window_options, |window, cx| {
+                cx.new(|cx| VaultUnlockUi::new(tx, window, cx))
+            })
+            .context("failed to open vault unlock window")?;
+
+        Ok(window)
     }
 }

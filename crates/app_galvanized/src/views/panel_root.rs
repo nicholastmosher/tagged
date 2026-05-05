@@ -76,8 +76,9 @@ impl PanelRoot {
         cx.spawn(async move |this, cx| {
             let cap = task.await?;
             if cap.is_active() {
-                this.update(cx, |this, _cx| {
+                this.update(cx, |this, cx| {
                     this.vault_cap = Some(cap);
+                    cx.notify();
                 })?;
             }
             anyhow::Ok(())
@@ -129,10 +130,11 @@ impl PanelRoot {
             .child(
                 //
                 v_flex()
-                    .debug()
+                    // .debug()
                     //
                     .mx_auto()
                     .items_center()
+                    .gap_2()
                     .child(
                         //
                         div()
@@ -147,6 +149,9 @@ impl PanelRoot {
                             //
                             .id("unlock-button")
                             .p_2()
+                            .border_1()
+                            .border_color(cx.theme().colors().border)
+                            .rounded_lg()
                             .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
                             .active(|style| style.bg(cx.theme().colors().ghost_element_active))
                             .on_click(cx.listener(|_this, _e, window, cx| {

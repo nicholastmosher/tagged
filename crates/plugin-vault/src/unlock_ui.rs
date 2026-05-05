@@ -7,6 +7,7 @@ use zed::unstable::{
         Render, Styled as _, Window, div, h_flex, v_flex,
     },
     ui_input::InputField,
+    util::ResultExt,
 };
 
 /// Top-level UI for the unlock window
@@ -78,7 +79,7 @@ impl Render for VaultUnlockUi {
                                             // TODO actual password verification
                                             if text == "password" {
                                                 if let Some(tx) = this.tx.take() {
-                                                    tx.send(()).unwrap();
+                                                    tx.send(()).log_err();
                                                     window.remove_window();
                                                 }
                                             } else {
